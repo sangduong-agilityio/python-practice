@@ -36,3 +36,19 @@ def authenticate_user(email: str, password: str):
                 return user
             return None
     return None
+
+
+def update_user(user_id: int, user_update):
+    for user in fake_users_db:
+        if user["id"] == user_id:
+
+            if user_update.email is not None:
+                user["email"] = user_update.email
+
+            if user_update.password is not None:
+                user["hashed_password"] = hash_password(user_update.password)
+
+            return user
+
+    return None
+
