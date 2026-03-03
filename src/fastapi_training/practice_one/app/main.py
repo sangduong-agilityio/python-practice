@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from .routes import user
 from .routes import auth
+from .routes import task
 from .core.config import settings
 
 app = FastAPI(
@@ -10,6 +11,7 @@ app = FastAPI(
 
 app.include_router(user.router)
 app.include_router(auth.router)
+app.include_router(task.router)
 
 
 @app.get("/")

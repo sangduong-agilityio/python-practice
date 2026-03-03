@@ -3,10 +3,10 @@ from ..schemas.user import UserCreate, UserResponse, UserUpdate
 from ..services.user_service import create_user, update_user as update_user_service
 from ..dependencies.auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(tags=["Users"])
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate):
     user = create_user(user_in)
     return UserResponse(
@@ -23,7 +23,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
     )
 
 
-@router.put("/users/{user_id}", response_model=UserResponse)
+@router.put("/users/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)
 def update_user(
     user_id: int,
     user_update: UserUpdate,

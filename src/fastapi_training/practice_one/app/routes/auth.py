@@ -3,10 +3,10 @@ from fastapi.security import OAuth2PasswordRequestForm
 from ..services.user_service import authenticate_user
 from ..core.security import create_access_token
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/token")
+@router.post("/token", status_code=status.HTTP_200_OK)
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(form_data.username, form_data.password)
 
