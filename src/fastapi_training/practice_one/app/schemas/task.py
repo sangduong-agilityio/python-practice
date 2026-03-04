@@ -14,3 +14,7 @@ class TaskResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
