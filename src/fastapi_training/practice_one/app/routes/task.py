@@ -1,8 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
 
-from ..schemas.task import TaskCreate, TaskResponse, TaskUpdate
-from ..services.task_service import create_task_service, get_tasks_for_user_service, get_task_by_id_service, update_task_service, delete_task_service
+from ..schemas.task import TaskCreate, TaskResponse, TaskUpdate, TaskStatus
+from ..services.task_service import (
+    create_task_service,
+    get_tasks_for_user_service,
+    get_task_by_id_service,
+    update_task_service,
+    delete_task_service,
+    filter_tasks_by_status_service,
+    search_tasks_by_title_service
+)
 from ..dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -26,6 +34,30 @@ def get_tasks(current_user=Depends(get_current_user)):
     return tasks
 
 
+@router.get("/filter/status", response_model=List[TaskResponse])
+def filter_tasks_by_status(
+    status: TaskStatus = Query(..., description="Task status to filter by"),
+    current_user=Depends(get_current_user)
+):
+    """
+    Filter tasks by status for the authenticated user.
+    """
+    tasks = filter_tasks_by_status_service(current_user["id"], status)
+    return tasks
+
+
+@router.get("/search/title", response_model=List[TaskResponse])
+def search_tasks_by_title(
+    q: str = Query(..., min_length=1, description="Search query"),
+    current_user=Depends(get_current_user)
+):
+    """
+    Search tasks by title for the authenticated user.
+    """
+    tasks = search_tasks_by_title_service(current_user["id"], q)
+    return tasks
+
+
 @router.get("/{task_id}", response_model=TaskResponse)
 def get_task_by_id(
     task_id: int,
@@ -33,8 +65,6 @@ def get_task_by_id(
 ):
     """
     Get a specific task by its ID (only access own task).
-    - 404 if task does not exist
-    - 403 if task belongs to another user
     """
     task = get_task_by_id_service(task_id)
 
@@ -60,9 +90,7 @@ def update_task(
     current_user=Depends(get_current_user)
 ):
     """
-    Update a specific task by its ID (only update own task).
-    - Proper authorization
-    - Correct HTTP codes (200 OK)
+    Update a specific task by its ID (only update own task) 
     """
     task = get_task_by_id_service(task_id)
 
@@ -89,8 +117,6 @@ def delete_task(
 ):
     """
     Delete a specific task by its ID (only delete own task).
-    - Proper authorization
-    - Correct HTTP codes (204 No Content)
     """
     task = get_task_by_id_service(task_id)
 
