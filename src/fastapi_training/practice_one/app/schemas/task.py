@@ -14,6 +14,7 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     status: TaskStatus = TaskStatus.PENDING
+    project_id: Optional[int] = None
 
 
 class TaskResponse(BaseModel):
@@ -21,6 +22,7 @@ class TaskResponse(BaseModel):
     title: str
     description: Optional[str] = None
     status: TaskStatus
+    project_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -30,3 +32,4 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[TaskStatus] = None
+    project_id: Optional[int] = None
