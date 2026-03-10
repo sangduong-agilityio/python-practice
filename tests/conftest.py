@@ -12,9 +12,9 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from src.fastapi_training.practice_one.app.main import app
-from src.fastapi_training.practice_one.app.db.fake_db import fake_users_db, fake_tasks_db, fake_projects_db
-from src.fastapi_training.practice_one.app.core.security import hash_password
+from src.fastapi_training.app.main import app
+from src.fastapi_training.app.db.fake_db import fake_users_db, fake_tasks_db, fake_projects_db
+from src.fastapi_training.app.core.security import hash_password
 
 
 @pytest.fixture(autouse=True)
@@ -25,7 +25,7 @@ def reset_databases():
     """
     fake_users_db.clear()
     fake_tasks_db.clear()
-    fake_projects_db.clear()
+    fake_projects_db.clear() 
 
     # Add test user
     fake_users_db.append({

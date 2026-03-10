@@ -8,6 +8,7 @@ Cover:
 """
 
 import pytest
+from fastapi import status
 
 
 class TestAuthRegister:
@@ -23,7 +24,7 @@ class TestAuthRegister:
             }
         )
 
-        assert response.status_code == 201
+        assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["email"] == "newuser@example.com"
         assert data["id"] == 2  # Second user
@@ -38,7 +39,7 @@ class TestAuthRegister:
             }
         )
 
-        assert response.status_code == 400
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "already registered" in response.json()["detail"].lower()
 
     def test_register_invalid_email(self, client):
@@ -51,7 +52,7 @@ class TestAuthRegister:
             }
         )
 
-        assert response.status_code == 422  # Unprocessable Entity
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_register_missing_password(self, client):
         """Test registration without password fails."""
@@ -63,7 +64,7 @@ class TestAuthRegister:
             }
         )
 
-        assert response.status_code == 422
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestAuthLogin:
@@ -79,7 +80,7 @@ class TestAuthLogin:
             }
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert "access_token" in data
         assert data["token_type"] == "bearer"
@@ -94,7 +95,7 @@ class TestAuthLogin:
             }
         )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Incorrect" in response.json()["detail"]
 
     def test_login_nonexistent_user(self, client):
@@ -107,7 +108,7 @@ class TestAuthLogin:
             }
         )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_login_response_format(self, client, test_user):
         """Test login response has correct format."""
@@ -119,7 +120,7 @@ class TestAuthLogin:
             }
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert isinstance(data["access_token"], str)
         assert len(data["access_token"]) > 0
@@ -136,7 +137,7 @@ class TestProtectedRoutes:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["email"] == "test@example.com"
         assert data["id"] == 1
@@ -145,7 +146,7 @@ class TestProtectedRoutes:
         """Test accessing protected route without token fails."""
         response = client.get("/users/me")
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_get_current_user_with_invalid_token(self, client):
         """Test accessing protected route with invalid token fails."""
@@ -154,7 +155,7 @@ class TestProtectedRoutes:
             headers={"Authorization": "Bearer invalid_token_xyz"}
         )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_get_current_user_with_expired_token(self, client):
         """Test accessing protected route with malformed token fails."""
@@ -163,13 +164,13 @@ class TestProtectedRoutes:
             headers={"Authorization": "Bearer malformed"}
         )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_get_tasks_without_token(self, client):
         """Test getting tasks without token fails."""
         response = client.get("/tasks/")
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_get_tasks_with_valid_token(self, client, auth_headers):
         """Test getting tasks with valid token succeeds."""
@@ -178,7 +179,7 @@ class TestProtectedRoutes:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert isinstance(response.json(), list)
 
 
@@ -195,7 +196,7 @@ class TestAuthenticationFlow:
                 "password": "securepass123"
             }
         )
-        assert register_response.status_code == 201
+        assert register_response.status_code == status.HTTP_201_CREATED
 
         # Step 2: Login
         login_response = client.post(
@@ -205,7 +206,7 @@ class TestAuthenticationFlow:
                 "password": "securepass123"
             }
         )
-        assert login_response.status_code == 200
+        assert login_response.status_code == status.HTTP_200_OK
         token = login_response.json()["access_token"]
 
         # Step 3: Access protected route
@@ -213,5 +214,5 @@ class TestAuthenticationFlow:
             "/users/me",
             headers={"Authorization": f"Bearer {token}"}
         )
-        assert protected_response.status_code == 200
+        assert protected_response.status_code == status.HTTP_200_OK
         assert protected_response.json()["email"] == "newuser@example.com"

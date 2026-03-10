@@ -1,10 +1,23 @@
+from typing import Optional
 from fastapi import HTTPException, status
 from ..db.fake_db import fake_users_db
 from ..core.security import hash_password, verify_password
 from ..schemas.user import UserCreate, UserResponse
 
 
-def create_user(user_in: UserCreate):
+def create_user(user_in: UserCreate) -> dict:
+    """
+    Create a new user account.
+
+    Args:
+        user_in: UserCreate schema with email and password
+
+    Returns:
+        Dictionary containing newly created user (id, email, hashed_password)
+
+    Raises:
+        HTTPException: 400 if email already registered
+    """
     # Check if user already exists
     for user in fake_users_db:
         if user["email"] == user_in.email:
@@ -28,7 +41,17 @@ def create_user(user_in: UserCreate):
     return new_user
 
 
-def authenticate_user(email: str, password: str):
+def authenticate_user(email: str, password: str) -> Optional[dict]:
+    """
+    Authenticate user by email and password.
+
+    Args:
+        email: User email address
+        password: Plain text password (will be verified against hash)
+
+    Returns:
+        User dictionary if credentials are valid, None otherwise
+    """
     # Find user by email
     for user in fake_users_db:
         if user["email"] == email:
@@ -38,7 +61,17 @@ def authenticate_user(email: str, password: str):
     return None
 
 
-def update_user(user_id: int, user_update):
+def update_user(user_id: int, user_update) -> Optional[dict]:
+    """
+    Update user profile information.
+
+    Args:
+        user_id: ID of the user to update
+        user_update: UserUpdate schema with optional email/password fields
+
+    Returns:
+        Updated user dictionary if found, None otherwise
+    """
     for user in fake_users_db:
         if user["id"] == user_id:
 
@@ -51,4 +84,3 @@ def update_user(user_id: int, user_update):
             return user
 
     return None
-

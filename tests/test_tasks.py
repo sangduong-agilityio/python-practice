@@ -8,6 +8,7 @@ Cover:
 """
 
 import pytest
+from fastapi import status
 
 
 class TestTaskCreate:
@@ -25,7 +26,7 @@ class TestTaskCreate:
             headers=auth_headers
         )
 
-        assert response.status_code == 201
+        assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["title"] == "Learn FastAPI"
         assert data["description"] == "Complete FastAPI tutorial"
@@ -42,7 +43,7 @@ class TestTaskCreate:
             }
         )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_create_task_missing_title(self, client, auth_headers):
         """Test task creation without title fails."""
@@ -66,7 +67,7 @@ class TestTaskCreate:
             headers=auth_headers
         )
 
-        assert response.status_code == 201
+        assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["status"] == "pending"
 
@@ -81,7 +82,7 @@ class TestTaskRead:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
 
     def test_get_all_tasks(self, client, auth_headers, create_test_task):
@@ -95,7 +96,7 @@ class TestTaskRead:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         tasks = response.json()
         assert len(tasks) == 2
         assert tasks[0]["title"] == "Task 1"
@@ -110,7 +111,7 @@ class TestTaskRead:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["title"] == "Important Task"
         assert data["status"] == "in_progress"
@@ -122,7 +123,7 @@ class TestTaskRead:
             headers=auth_headers
         )
 
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_get_task_other_user(self, client, auth_headers, auth_headers_user_2, create_test_task):
         """Test accessing other user's task - 403 Forbidden."""
@@ -135,7 +136,7 @@ class TestTaskRead:
             headers=auth_headers_user_2
         )
 
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "Not allowed" in response.json()["detail"]
 
 
@@ -155,7 +156,7 @@ class TestTaskUpdate:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["title"] == "Updated Title"
         assert data["status"] == "in_progress"
@@ -173,7 +174,7 @@ class TestTaskUpdate:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["title"] == "Original"
         assert data["status"] == "completed"
@@ -186,7 +187,7 @@ class TestTaskUpdate:
             headers=auth_headers
         )
 
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update_other_user_task(self, client, auth_headers, auth_headers_user_2, create_test_task):
         """Test other user cannot update task."""
@@ -198,7 +199,7 @@ class TestTaskUpdate:
             headers=auth_headers_user_2
         )
 
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestTaskDelete:
@@ -213,14 +214,14 @@ class TestTaskDelete:
             headers=auth_headers
         )
 
-        assert response.status_code == 204
+        assert response.status_code == status.HTTP_204_NO_CONTENT
 
         # Verify task is deleted
         get_response = client.get(
             "/tasks/1",
             headers=auth_headers
         )
-        assert get_response.status_code == 404
+        assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_task_not_found(self, client, auth_headers):
         """Test deleting non-existent task fails."""
@@ -229,7 +230,7 @@ class TestTaskDelete:
             headers=auth_headers
         )
 
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_other_user_task(self, client, auth_headers, auth_headers_user_2, create_test_task):
         """Test other user cannot delete task."""
@@ -240,7 +241,7 @@ class TestTaskDelete:
             headers=auth_headers_user_2
         )
 
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestTaskFiltering:
@@ -257,7 +258,7 @@ class TestTaskFiltering:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         tasks = response.json()
         assert len(tasks) == 2
         assert all(task["status"] == "pending" for task in tasks)
@@ -269,7 +270,7 @@ class TestTaskFiltering:
             headers=auth_headers
         )
 
-        assert response.status_code == 422
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_search_by_title_case_insensitive(self, client, auth_headers, create_test_task):
         """Test case-insensitive title search."""
@@ -288,8 +289,8 @@ class TestTaskFiltering:
             headers=auth_headers
         )
 
-        assert response_lower.status_code == 200
-        assert response_upper.status_code == 200
+        assert response_lower.status_code == status.HTTP_200_OK
+        assert response_upper.status_code == status.HTTP_200_OK
         assert len(response_lower.json()) == 1
         assert len(response_upper.json()) == 1
         assert response_lower.json() == response_upper.json()
@@ -305,7 +306,7 @@ class TestTaskFiltering:
             headers=auth_headers
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         tasks = response.json()
         assert len(tasks) == 2
         assert all("API" in task["title"]
@@ -344,7 +345,7 @@ class TestTaskAuthorization:
             headers=auth_headers_user_2
         )
 
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_cannot_modify_other_user_task(self, client, auth_headers, auth_headers_user_2, create_test_task):
         """Test cannot modify other user's task."""
@@ -356,7 +357,7 @@ class TestTaskAuthorization:
             headers=auth_headers_user_2
         )
 
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestTaskErrorCases:
@@ -373,7 +374,7 @@ class TestTaskErrorCases:
             headers=auth_headers
         )
 
-        assert response.status_code == 422
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_get_tasks_without_auth(self, client):
         """Test getting tasks without auth token."""
@@ -391,4 +392,4 @@ class TestTaskErrorCases:
             headers=auth_headers
         )
 
-        assert response.status_code == 422
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
