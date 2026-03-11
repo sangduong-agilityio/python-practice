@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
+from .task import TaskResponse
 
 
 class ProjectCreate(BaseModel):
@@ -12,6 +13,7 @@ class ProjectResponse(BaseModel):
     name: str
     description: Optional[str] = None
     user_id: int
+    tasks: List[TaskResponse] = []
 
     class Config:
         from_attributes = True
