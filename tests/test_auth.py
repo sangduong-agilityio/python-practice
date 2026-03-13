@@ -73,7 +73,7 @@ class TestAuthLogin:
     def test_login_success(self, client, test_user):
         """Test successful login returns access token."""
         response = client.post(
-            "/auth/token",
+            "/auth/login",
             data={
                 "username": test_user["email"],
                 "password": test_user["password"]
@@ -88,7 +88,7 @@ class TestAuthLogin:
     def test_login_wrong_password(self, client, test_user):
         """Test login with wrong password fails."""
         response = client.post(
-            "/auth/token",
+            "/auth/login",
             data={
                 "username": test_user["email"],
                 "password": "wrongpassword"
@@ -101,7 +101,7 @@ class TestAuthLogin:
     def test_login_nonexistent_user(self, client):
         """Test login with non-existent email fails."""
         response = client.post(
-            "/auth/token",
+            "/auth/login",
             data={
                 "username": "nonexistent@example.com",
                 "password": "password123"
@@ -113,7 +113,7 @@ class TestAuthLogin:
     def test_login_response_format(self, client, test_user):
         """Test login response has correct format."""
         response = client.post(
-            "/auth/token",
+            "/auth/login",
             data={
                 "username": test_user["email"],
                 "password": test_user["password"]
@@ -200,7 +200,7 @@ class TestAuthenticationFlow:
 
         # Step 2: Login
         login_response = client.post(
-            "/auth/token",
+            "/auth/login",
             data={
                 "username": "newuser@example.com",
                 "password": "securepass123"

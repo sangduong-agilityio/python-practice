@@ -25,7 +25,7 @@ def reset_databases():
     """
     fake_users_db.clear()
     fake_tasks_db.clear()
-    fake_projects_db.clear() 
+    fake_projects_db.clear()
 
     # Add test user
     fake_users_db.append({
@@ -108,7 +108,7 @@ def auth_headers(client, test_user):
             assert response.status_code == 200
     """
     response = client.post(
-        "/auth/token",
+        "/auth/login",
         data={
             "username": test_user["email"],
             "password": test_user["password"]
@@ -126,7 +126,7 @@ def auth_headers_user_2(client, test_user_2):
     Useful for testing authorization/access control.
     """
     response = client.post(
-        "/auth/token",
+        "/auth/login",
         data={
             "username": test_user_2["email"],
             "password": test_user_2["password"]

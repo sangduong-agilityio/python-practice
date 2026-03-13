@@ -1,0 +1,137 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug: Current Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug: All Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug: Single Test (Input Name)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-vv",
+                "-s",
+                "-k",
+                "${selectedText}",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 3
+            }
+        },
+        {
+            "name": "Debug: Tests with Coverage",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-vv",
+                "-s",
+                "--cov=app",
+                "--cov-report=term-missing"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 4
+            }
+        },
+        {
+            "name": "Debug: Auth Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/test_auth.py",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 2
+            }
+        },
+        {
+            "name": "Run: Server (Development)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                "--reload",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8000"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Server"
+            }
+        },
+        {
+            "name": "Run: Server (Production)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000",
+                "--workers",
+                "4"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Server",
+                "order": 2
+            }
+        }
+    ]
+}
