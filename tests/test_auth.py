@@ -183,6 +183,93 @@ class TestProtectedRoutes:
         assert isinstance(response.json(), list)
 
 
+class TestTokenExpiration:
+    """
+    Test token expiration and refresh workflow.
+
+    Purpose:
+    - Verify expired token returns 401
+    - Verify refresh token can generate new access token
+    """
+
+    def test_refresh_token_returns_new_access_token(self, client, test_user):
+        """Test refresh token returns a new access token."""
+
+        # Login to get tokens
+        login_response = client.post(
+            "/auth/login",
+            data={
+                "username": test_user["email"],
+                "password": test_user["password"]
+            }
+        )
+
+        assert login_response.status_code == status.HTTP_200_OK
+
+        tokens = login_response.json()
+        refresh_token = tokens["refresh_token"]
+
+        # Call refresh endpoint
+        refresh_response = client.post(
+            "/auth/refresh",
+            data={
+                "username": "dummy",
+                "password": refresh_token
+            }
+        )
+
+        assert refresh_response.status_code == status.HTTP_200_OK
+        new_access_token = refresh_response.json()["access_token"]
+
+        # Use new token to access protected route
+        response = client.get(
+            "/users/me",
+            headers={"Authorization": f"Bearer {new_access_token}"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["email"] == test_user["email"]
+
+    def test_invalid_refresh_token(self, client):
+        """Test invalid refresh token returns 401."""
+
+        response = client.post(
+            "/auth/refresh",
+            data={
+                "username": "dummy",
+                "password": "invalid_token"
+            }
+        )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_verify_token_expired(self):
+        """Test verify_token raises error for expired token."""
+
+        from datetime import datetime, timedelta, timezone
+        from jose import jwt
+        from fastapi import HTTPException
+        from src.fastapi_training.app.core.config import settings
+        from src.fastapi_training.app.core.security import verify_token
+
+        expired_payload = {
+            "sub": "test@example.com",
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1)
+        }
+
+        expired_token = jwt.encode(
+            expired_payload,
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM
+        )
+
+        try:
+            verify_token(expired_token)
+            assert False
+        except HTTPException as e:
+            assert e.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 class TestAuthenticationFlow:
     """Test complete authentication workflow."""
 

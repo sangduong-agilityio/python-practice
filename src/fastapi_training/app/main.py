@@ -3,8 +3,8 @@ from .routes import user, auth, task, project
 from .core.config import settings
 
 app = FastAPI(
-    title=settings.app_name,
-    debug=settings.debug
+    title=settings.APP_NAME,
+    debug=settings.DEBUG
 )
 
 app.include_router(user.router)

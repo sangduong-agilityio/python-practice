@@ -61,7 +61,7 @@
                 "tests/",
                 "-vv",
                 "-s",
-                "--cov=app",
+                "--cov=src.fastapi_training",
                 "--cov-report=term-missing"
             ],
             "console": "integratedTerminal",
