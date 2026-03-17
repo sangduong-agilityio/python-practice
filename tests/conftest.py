@@ -1,18 +1,17 @@
 """
 Shared fixtures and configuration for all tests.
 """
-import pytest
-from fastapi.testclient import TestClient
-from datetime import timedelta
-
-from src.fastapi_training.app.main import app
-from src.fastapi_training.app.db.fake_db import fake_users_db, fake_tasks_db, fake_projects_db
+from src.fastapi_training.app.schemas.user import UserCreate
 from src.fastapi_training.app.core.security import (
     hash_password,
     create_access_token,
     create_refresh_token,
 )
-from src.fastapi_training.app.schemas.user import UserCreate
+from src.fastapi_training.app.db.fake_db import fake_users_db, fake_tasks_db, fake_projects_db
+from src.fastapi_training.app.main import app
+from datetime import timedelta
+from fastapi.testclient import TestClient
+import pytest
 
 
 @pytest.fixture(autouse=True)

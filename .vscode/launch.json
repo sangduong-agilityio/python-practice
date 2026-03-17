@@ -14,7 +14,11 @@
             ],
             "console": "integratedTerminal",
             "justMyCode": false,
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 1
+            }
         },
         {
             "name": "Debug: All Tests",
@@ -49,7 +53,7 @@
             "cwd": "${workspaceFolder}",
             "presentation": {
                 "group": "Test",
-                "order": 3
+                "order": 6
             }
         },
         {
@@ -69,7 +73,7 @@
             "cwd": "${workspaceFolder}",
             "presentation": {
                 "group": "Test",
-                "order": 4
+                "order": 7
             }
         },
         {
@@ -78,7 +82,7 @@
             "request": "launch",
             "module": "pytest",
             "args": [
-                "tests/test_auth.py",
+                "tests/routes/test_auth.py",
                 "-vv",
                 "-s",
                 "--tb=short"
@@ -92,12 +96,107 @@
             }
         },
         {
+            "name": "Debug: User Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/routes/test_user.py",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 3
+            }
+        },
+        {
+            "name": "Debug: Task Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/routes/test_task.py",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 4
+            }
+        },
+        {
+            "name": "Debug: Project Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/routes/test_project.py",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 5
+            }
+        },
+        {
+            "name": "Debug: Security Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/core/test_security.py",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 6
+            }
+        },
+        {
+            "name": "Debug: Service Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/services/",
+                "-vv",
+                "-s",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "presentation": {
+                "group": "Test",
+                "order": 5
+            }
+        },
+        {
             "name": "Run: Server (Development)",
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "app.main:app",
+                "src.fastapi_training.app.main:app",
                 "--reload",
                 "--host",
                 "127.0.0.1",
@@ -117,7 +216,7 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "app.main:app",
+                "src.fastapi_training.app.main:app",
                 "--host",
                 "0.0.0.0",
                 "--port",
