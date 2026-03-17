@@ -1,42 +1,27 @@
 """
-Test configuration and fixtures for the FastAPI application.
-
-This module provides:
-- TestClient setup
-- Database isolation for tests
-- Test user fixtures
-- Authentication fixtures
+Shared fixtures and configuration for all tests.
 """
-
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from datetime import timedelta
 
 from src.fastapi_training.app.main import app
 from src.fastapi_training.app.db.fake_db import fake_users_db, fake_tasks_db, fake_projects_db
-from src.fastapi_training.app.core.security import hash_password
+from src.fastapi_training.app.core.security import (
+    hash_password,
+    create_access_token,
+    create_refresh_token,
+)
+from src.fastapi_training.app.schemas.user import UserCreate
 
 
 @pytest.fixture(autouse=True)
-def reset_databases():
-    """
-    Reset all databases before each test.
-    This ensures test isolation.
-    """
+def clear_db():
+    """Clear fake databases before each test."""
     fake_users_db.clear()
     fake_tasks_db.clear()
     fake_projects_db.clear()
-
-    # Add test user
-    fake_users_db.append({
-        "id": 1,
-        "email": "test@example.com",
-        "hashed_password": hash_password("password123")
-    })
-
     yield
-
-    # Cleanup after test
     fake_users_db.clear()
     fake_tasks_db.clear()
     fake_projects_db.clear()
@@ -44,138 +29,119 @@ def reset_databases():
 
 @pytest.fixture
 def client():
-    """
-    TestClient for making requests to the FastAPI app.
-
-    Usage:
-        def test_something(client):
-            response = client.get("/")
-            assert response.status_code == 200
-    """
+    """Provide FastAPI TestClient."""
     return TestClient(app)
 
 
 @pytest.fixture
-def test_user():
-    """
-    Default test user credentials.
-
-    Usage:
-        def test_login(client, test_user):
-            response = client.post(
-                "/auth/token",
-                data={
-                    "username": test_user["email"],
-                    "password": test_user["password"]
-                }
-            )
-    """
+def test_user_data():
+    """Provide test user data."""
     return {
         "email": "test@example.com",
-        "password": "password123"
+        "password": "TestPassword123",
     }
 
 
 @pytest.fixture
-def test_user_2():
-    """
-    Second test user for authorization testing.
-    """
-    user_email = "testuser2@example.com"
-    user_password = "password456"
+def test_password_invalid():
+    """Provide invalid password for testing."""
+    return "short"  # Less than 8 characters
 
-    # Add second user to database
-    fake_users_db.append({
-        "id": 2,
-        "email": user_email,
-        "hashed_password": hash_password(user_password)
-    })
 
+@pytest.fixture
+def test_user_db(test_user_data):
+    """Create a test user in the database."""
+    user = {
+        "id": 1,
+        "email": test_user_data["email"],
+        "hashed_password": hash_password(test_user_data["password"]),
+    }
+    fake_users_db.append(user)
+    return user
+
+
+@pytest.fixture
+def test_user_token(test_user_data):
+    """Generate access token for test user."""
+    return create_access_token(data={"sub": test_user_data["email"]})
+
+
+@pytest.fixture
+def test_user_refresh_token(test_user_data):
+    """Generate refresh token for test user."""
+    return create_refresh_token(data={"sub": test_user_data["email"]})
+
+
+@pytest.fixture
+def test_user_expired_token(test_user_data):
+    """Generate expired access token for testing."""
+    from src.fastapi_training.app.core.config import settings
+    from jose import jwt
+    from datetime import datetime, timezone
+
+    # Create token with past expiration
+    to_encode = {"sub": test_user_data["email"]}
+    expire = datetime.now(timezone.utc) - timedelta(minutes=1)
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
+
+
+@pytest.fixture
+def auth_headers(test_user_token):
+    """Provide authorization headers with valid token."""
+    return {"Authorization": f"Bearer {test_user_token}"}
+
+
+@pytest.fixture
+def test_second_user_data():
+    """Provide second test user data."""
     return {
-        "email": user_email,
-        "password": user_password
+        "email": "second@example.com",
+        "password": "SecondPass123",
     }
 
 
 @pytest.fixture
-def auth_headers(client, test_user):
-    """
-    Get Authorization header with valid JWT token for test_user.
-
-    Usage:
-        def test_protected_route(client, auth_headers):
-            response = client.get("/users/me", headers=auth_headers)
-            assert response.status_code == 200
-    """
-    response = client.post(
-        "/auth/login",
-        data={
-            "username": test_user["email"],
-            "password": test_user["password"]
-        }
-    )
-
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+def test_second_user_db(test_second_user_data):
+    """Create a second test user in the database."""
+    user = {
+        "id": 2,
+        "email": test_second_user_data["email"],
+        "hashed_password": hash_password(test_second_user_data["password"]),
+    }
+    fake_users_db.append(user)
+    return user
 
 
 @pytest.fixture
-def auth_headers_user_2(client, test_user_2):
-    """
-    Get Authorization header for test_user_2.
-    Useful for testing authorization/access control.
-    """
-    response = client.post(
-        "/auth/login",
-        data={
-            "username": test_user_2["email"],
-            "password": test_user_2["password"]
-        }
-    )
-
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+def test_second_user_token(test_second_user_data):
+    """Generate access token for second test user."""
+    return create_access_token(data={"sub": test_second_user_data["email"]})
 
 
 @pytest.fixture
-def create_test_task(client, auth_headers):
-    """
-    Factory fixture to create test tasks.
-
-    Usage:
-        def test_task_crud(client, create_test_task):
-            task = create_test_task("Learn FastAPI", "pending")
-            assert task["id"] == 1
-    """
-    def _create_task(title="Test Task", status="pending", description="Test description"):
-        response = client.post(
-            "/tasks/",
-            json={
-                "title": title,
-                "description": description,
-                "status": status
-            },
-            headers=auth_headers
-        )
-        return response.json()
-
-    return _create_task
+def second_auth_headers(test_second_user_token):
+    """Provide authorization headers for second user."""
+    return {"Authorization": f"Bearer {test_second_user_token}"}
 
 
 @pytest.fixture
-def create_test_project(client, auth_headers):
-    """
-    Factory fixture to create test projects.
-    """
-    def _create_project(name="Test Project", description="Test project description"):
-        response = client.post(
-            "/projects/",
-            json={
-                "name": name,
-                "description": description
-            },
-            headers=auth_headers
-        )
-        return response.json()
+def test_task_data():
+    """Provide test task data."""
+    return {
+        "title": "Test Task",
+        "description": "This is a test task",
+        "status": "pending",
+        "project_id": None,
+    }
 
-    return _create_project
+
+@pytest.fixture
+def test_project_data():
+    """Provide test project data."""
+    return {
+        "name": "Test Project",
+        "description": "This is a test project",
+    }
