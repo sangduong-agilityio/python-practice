@@ -36,6 +36,9 @@ class UserResponse(BaseModel):
     id: int
     email: EmailStr
 
+    class Config:
+        from_attributes = True
+
 
 class UserUpdate(BaseModel):
     """Schema for updating user info."""

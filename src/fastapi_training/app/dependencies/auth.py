@@ -1,9 +1,10 @@
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.security import oauth2_scheme, verify_token
-from ..db.fake_db import fake_users_db
+from ..dependencies.db import get_db
+from ..services.user_service import get_user_by_email
 
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     payload = verify_token(token)
 
     email = payload.get("sub")
@@ -13,12 +14,11 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             detail="Invalid token payload"
         )
 
-    # Find user in fake DB
-    for user in fake_users_db:
-        if user["email"] == email:
-            return user
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="User not found"
-    )
+    # Find user in DB
+    user = await get_user_by_email(db, email=email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    return user

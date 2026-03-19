@@ -1,86 +1,61 @@
 from typing import Optional
 from fastapi import HTTPException, status
-from ..db.fake_db import fake_users_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from ..core.security import hash_password, verify_password
-from ..schemas.user import UserCreate, UserResponse
+from ..models.user import User
+from ..schemas.user import UserCreate, UserUpdate
 
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.email == email))
+    return result.scalar_first()
 
-def create_user(user_in: UserCreate) -> dict:
-    """
-    Create a new user account.
+async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
+    result = await db.execute(select(User).filter(User.id == user_id))
+    return result.scalar_first()
 
-    Args:
-        user_in: UserCreate schema with email and password
+async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
+    if await get_user_by_email(db, email=user_in.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    hashed_password = hash_password(user_in.password)
+    db_user = User(
+        email=user_in.email,
+        hashed_password=hashed_password
+    )
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
 
-    Returns:
-        Dictionary containing newly created user (id, email, hashed_password)
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
+    user = await get_user_by_email(db, email=email)
+    if not user:
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
+    return user
 
-    Raises:
-        HTTPException: 400 if email already registered
-    """
-    # Check if user already exists
-    for user in fake_users_db:
-        if user["email"] == user_in.email:
+async def update_user(db: AsyncSession, user_id: int, user_update: UserUpdate) -> Optional[User]:
+    db_user = await get_user(db, user_id)
+    if not db_user:
+        return None
+
+    if user_update.email is not None:
+        existing_user = await get_user_by_email(db, email=user_update.email)
+        if existing_user and existing_user.id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
-    # Hash the password
-    hashed_password = hash_password(user_in.password)
+        db_user.email = user_update.email
 
-    # Create new user dict
-    new_user = {
-        "id": len(fake_users_db) + 1,
-        "email": user_in.email,
-        "hashed_password": hashed_password
-    }
+    if user_update.password is not None:
+        db_user.hashed_password = hash_password(user_update.password)
 
-    # Save to fake DB
-    fake_users_db.append(new_user)
-
-    return new_user
-
-
-def authenticate_user(email: str, password: str) -> Optional[dict]:
-    """
-    Authenticate user by email and password.
-
-    Args:
-        email: User email address
-        password: Plain text password (will be verified against hash)
-
-    Returns:
-        User dictionary if credentials are valid, None otherwise
-    """
-    # Find user by email
-    for user in fake_users_db:
-        if user["email"] == email:
-            if verify_password(password, user["hashed_password"]):
-                return user
-            return None
-    return None
-
-
-def update_user(user_id: int, user_update) -> Optional[dict]:
-    """
-    Update user profile information.
-
-    Args:
-        user_id: ID of the user to update
-        user_update: UserUpdate schema with optional email/password fields
-
-    Returns:
-        Updated user dictionary if found, None otherwise
-    """
-    for user in fake_users_db:
-        if user["id"] == user_id:
-
-            if user_update.email is not None:
-                user["email"] = user_update.email
-
-            if user_update.password is not None:
-                user["hashed_password"] = hash_password(user_update.password)
-
-            return user
-
-    return None
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
