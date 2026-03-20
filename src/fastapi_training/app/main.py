@@ -8,10 +8,10 @@ from .db.database import create_db_and_tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
-    # Startup: Create tables
-    await create_db_and_tables()
+    # DB initialization is now handled via Alembic Migrations
     yield
     # Shutdown: Can add cleanup code here if needed
+
 
 
 app = FastAPI(

@@ -9,7 +9,7 @@ class Project(Base):
     name = Column(String, index=True)
     description = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    
-    # Relationships
-    owner = relationship("User", foreign_keys=[user_id])
-    tasks = relationship("Task", back_populates="project")
+
+    # Relationships - lazy="selectin" required for Async SQLAlchemy
+    owner = relationship("User", foreign_keys=[user_id], lazy="selectin")
+    tasks = relationship("Task", back_populates="project", lazy="selectin")

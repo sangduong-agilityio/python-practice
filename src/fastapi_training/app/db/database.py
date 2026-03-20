@@ -5,14 +5,14 @@ from sqlalchemy.orm import declarative_base
 SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./sql_app.db"
 
 # Create async engine
-engine = create_async_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL)
 
 # Create async session local class
 AsyncSessionLocal = async_sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+    autocommit=False, autoflush=False, bind=engine,
+    class_=AsyncSession, expire_on_commit=False
 )
+
 
 # Base class for models
 Base = declarative_base()

@@ -24,7 +24,7 @@ async def get_tasks_for_user_service(db: AsyncSession, user_id: int) -> List[Tas
 
 async def get_task_by_id_service(db: AsyncSession, task_id: int) -> Optional[Task]:
     result = await db.execute(select(Task).filter(Task.id == task_id, Task.is_deleted == False))
-    return result.scalar_first()
+    return result.scalars().first()
 
 async def update_task_service(db: AsyncSession, task: Task, update_data: TaskUpdate) -> Task:
     update_dict = update_data.model_dump(exclude_unset=True) if hasattr(update_data, 'model_dump') else update_data.dict(exclude_unset=True)

@@ -8,11 +8,11 @@ from ..schemas.user import UserCreate, UserUpdate
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     result = await db.execute(select(User).filter(User.email == email))
-    return result.scalar_first()
+    return result.scalars().first()
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
     result = await db.execute(select(User).filter(User.id == user_id))
-    return result.scalar_first()
+    return result.scalars().first()
 
 async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
     if await get_user_by_email(db, email=user_in.email):

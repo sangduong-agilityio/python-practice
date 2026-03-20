@@ -22,7 +22,7 @@ async def get_projects_for_user_service(db: AsyncSession, user_id: int) -> List[
 
 async def get_project_by_id_service(db: AsyncSession, project_id: int) -> Optional[Project]:
     result = await db.execute(select(Project).filter(Project.id == project_id))
-    return result.scalar_first()
+    return result.scalars().first()
 
 async def assign_task_to_project_service(db: AsyncSession, project_id: int, task_id: int, current_user_id: int) -> Dict:
     project = await get_project_by_id_service(db, project_id)
@@ -33,7 +33,7 @@ async def assign_task_to_project_service(db: AsyncSession, project_id: int, task
         return {"error": "Not allowed to assign to this project", "code": 403}
 
     result = await db.execute(select(Task).filter(Task.id == task_id, Task.is_deleted == False))
-    task = result.scalar_first()
+    task = result.scalars().first()
     if not task:
         return {"error": "Task not found", "code": 404}
 
