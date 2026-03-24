@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String
-from ..db.database import Base
+from sqlalchemy.orm import relationship
+from ..db.base import Base
 
 class User(Base):
     __tablename__ = "users"
@@ -10,3 +11,6 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     phone_number = Column(String, nullable=True)
 
+    # Relationships
+    projects = relationship("Project", back_populates="owner", lazy="selectin")
+    tasks = relationship("Task", back_populates="owner", lazy="selectin")

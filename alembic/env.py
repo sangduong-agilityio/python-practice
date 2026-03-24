@@ -1,4 +1,4 @@
-from src.fastapi_training.app.db.database import Base, SQLALCHEMY_DATABASE_URL
+from fastapi_training.app.db.session import Base, SQLALCHEMY_DATABASE_URL
 from os.path import dirname, abspath
 import sys
 import asyncio

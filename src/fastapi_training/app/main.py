@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .routes import user, auth, task, project
 from .core.config import settings
-from .db.database import create_db_and_tables
 
 
 @asynccontextmanager
@@ -11,7 +10,6 @@ async def lifespan(app: FastAPI):
     # DB initialization is now handled via Alembic Migrations
     yield
     # Shutdown: Can add cleanup code here if needed
-
 
 
 app = FastAPI(

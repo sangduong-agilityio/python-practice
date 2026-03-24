@@ -3,10 +3,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
-# Locate .env file at project root
-env_file = Path(__file__).resolve().parents[4] / ".env"
-
-
 class Settings(BaseSettings):
     """
     Application settings loaded from .env file.
@@ -29,12 +25,13 @@ class Settings(BaseSettings):
         description="Access token expiration time"
     )
 
+    # Database
+    DATABASE_URL: str = "sqlite+aiosqlite:///./sql_app.db"
+
     # Pydantic v2 config
     model_config = SettingsConfigDict(
-        env_file=env_file,
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8"
     )
 
 

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from ..db.database import Base
+from ..db.base import Base
 
 class Project(Base):
     __tablename__ = "projects"
@@ -10,6 +10,6 @@ class Project(Base):
     description = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"))
 
-    # Relationships - lazy="selectin" required for Async SQLAlchemy
-    owner = relationship("User", foreign_keys=[user_id], lazy="selectin")
+    # Relationships
+    owner = relationship("User", back_populates="projects", lazy="selectin")
     tasks = relationship("Task", back_populates="project", lazy="selectin")
