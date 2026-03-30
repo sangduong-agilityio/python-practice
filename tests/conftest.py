@@ -1,36 +1,65 @@
 """
 Shared fixtures and configuration for all tests.
+Uses async in-memory SQLite DB with SQLModel for isolation.
+Each test gets a fresh DB via TestClient with dependency override.
 """
-from src.fastapi_training.app.schemas.user import UserCreate
-from src.fastapi_training.app.core.security import (
-    hash_password,
-    create_access_token,
-    create_refresh_token,
-)
-from src.fastapi_training.app.db.fake_db import fake_users_db, fake_tasks_db, fake_projects_db
-from src.fastapi_training.app.main import app
-from datetime import timedelta
-from fastapi.testclient import TestClient
+import asyncio
+from typing import Generator
+
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlmodel import SQLModel
 
+from src.fastapi_training.main import app
+from src.fastapi_training.api.deps import get_db
+from src.fastapi_training.core.security import create_access_token
+from datetime import timedelta
 
-@pytest.fixture(autouse=True)
-def clear_db():
-    """Clear fake databases before each test."""
-    fake_users_db.clear()
-    fake_tasks_db.clear()
-    fake_projects_db.clear()
-    yield
-    fake_users_db.clear()
-    fake_tasks_db.clear()
-    fake_projects_db.clear()
+from src.fastapi_training.models.user import User 
+from src.fastapi_training.models.project import Project 
+from src.fastapi_training.models.task import Task 
+from src.fastapi_training.models.refresh_token import RefreshToken 
+
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest.fixture
-def client():
-    """Provide FastAPI TestClient."""
-    return TestClient(app)
+def client() -> Generator:
+    """
+    Provide FastAPI TestClient backed by an isolated in-memory SQLite DB.
+    DB is created fresh for each test and torn down afterward.
+    """
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
+    # Create all tables synchronously before the test
+    async def _create_tables():
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+    asyncio.get_event_loop().run_until_complete(_create_tables())
+
+    async def _override_get_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = _override_get_db
+
+    with TestClient(app, base_url="http://testserver/api/v1") as c:
+        yield c
+
+    # Teardown
+    async def _drop_tables():
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+        await engine.dispose()
+
+    asyncio.get_event_loop().run_until_complete(_drop_tables())
+    app.dependency_overrides.clear()
+
+
+# --- User Data Fixtures ---
 
 @pytest.fixture
 def test_user_data():
@@ -39,58 +68,6 @@ def test_user_data():
         "email": "test@example.com",
         "password": "TestPassword123",
     }
-
-
-@pytest.fixture
-def test_password_invalid():
-    """Provide invalid password for testing."""
-    return "short"  # Less than 8 characters
-
-
-@pytest.fixture
-def test_user_db(test_user_data):
-    """Create a test user in the database."""
-    user = {
-        "id": 1,
-        "email": test_user_data["email"],
-        "hashed_password": hash_password(test_user_data["password"]),
-    }
-    fake_users_db.append(user)
-    return user
-
-
-@pytest.fixture
-def test_user_token(test_user_data):
-    """Generate access token for test user."""
-    return create_access_token(data={"sub": test_user_data["email"]})
-
-
-@pytest.fixture
-def test_user_refresh_token(test_user_data):
-    """Generate refresh token for test user."""
-    return create_refresh_token(data={"sub": test_user_data["email"]})
-
-
-@pytest.fixture
-def test_user_expired_token(test_user_data):
-    """Generate expired access token for testing."""
-    from src.fastapi_training.app.core.config import settings
-    from jose import jwt
-    from datetime import datetime, timezone
-
-    # Create token with past expiration
-    to_encode = {"sub": test_user_data["email"]}
-    expire = datetime.now(timezone.utc) - timedelta(minutes=1)
-    to_encode.update({"exp": expire})
-    return jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
-
-
-@pytest.fixture
-def auth_headers(test_user_token):
-    """Provide authorization headers with valid token."""
-    return {"Authorization": f"Bearer {test_user_token}"}
 
 
 @pytest.fixture
@@ -103,15 +80,25 @@ def test_second_user_data():
 
 
 @pytest.fixture
-def test_second_user_db(test_second_user_data):
-    """Create a second test user in the database."""
-    user = {
-        "id": 2,
-        "email": test_second_user_data["email"],
-        "hashed_password": hash_password(test_second_user_data["password"]),
-    }
-    fake_users_db.append(user)
-    return user
+def test_user_db(client, test_user_data):
+    """Register a test user via the API and return user dict."""
+    response = client.post("/auth/register", json=test_user_data)
+    assert response.status_code == 201, f"Registration failed: {response.json()}"
+    return response.json()
+
+
+@pytest.fixture
+def test_second_user_db(client, test_second_user_data):
+    """Register a second test user via the API and return user dict."""
+    response = client.post("/auth/register", json=test_second_user_data)
+    assert response.status_code == 201, f"Registration failed: {response.json()}"
+    return response.json()
+
+
+@pytest.fixture
+def test_user_token(test_user_data):
+    """Generate access token for test user (without DB lookup)."""
+    return create_access_token(data={"sub": test_user_data["email"]})
 
 
 @pytest.fixture
@@ -121,7 +108,36 @@ def test_second_user_token(test_second_user_data):
 
 
 @pytest.fixture
-def second_auth_headers(test_second_user_token):
+def test_user_refresh_token(client, test_user_db, test_user_data):
+    """
+    Obtain a refresh token via the login API so it is persisted in the DB.
+    This is required because the /refresh endpoint now validates tokens against DB.
+    """
+    response = client.post(
+        "/auth/login",
+        data={"username": test_user_data["email"], "password": test_user_data["password"]},
+    )
+    assert response.status_code == 200, f"Login failed: {response.json()}"
+    return response.json()["refresh_token"]
+
+
+@pytest.fixture
+def test_user_expired_token(test_user_data):
+    """Generate an expired token for test user."""
+    return create_access_token(
+        data={"sub": test_user_data["email"]},
+        expires_delta=timedelta(minutes=-10)
+    )
+
+
+@pytest.fixture
+def auth_headers(test_user_db, test_user_token):
+    """Provide authorization headers with valid token. Depends on test_user_db to ensure user exists in DB."""
+    return {"Authorization": f"Bearer {test_user_token}"}
+
+
+@pytest.fixture
+def second_auth_headers(test_second_user_db, test_second_user_token):
     """Provide authorization headers for second user."""
     return {"Authorization": f"Bearer {test_second_user_token}"}
 

@@ -1,4 +1,8 @@
-from fastapi_training.app.db.session import Base, SQLALCHEMY_DATABASE_URL
+from src.fastapi_training.db.session import Base, SQLALCHEMY_DATABASE_URL
+from src.fastapi_training.models.user import User  
+from src.fastapi_training.models.project import Project  
+from src.fastapi_training.models.task import Task  
+from src.fastapi_training.models.refresh_token import RefreshToken  
 from os.path import dirname, abspath
 import sys
 import asyncio
