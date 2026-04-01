@@ -115,7 +115,7 @@ Then open: **http://127.0.0.1:8000/docs**
 | Ruff      | Linter & formatter  | >= 0.14.9 |
 | Python    | Language            | >= 3.13 |
 
-**Data Storage**: SQLite (Async via `aiosqlite`)
+**Data Storage**: PostgreSQL (Async via `asyncpg`)
  
 ---
 
@@ -172,7 +172,7 @@ DEBUG=False
 SECRET_KEY="your-secret-key-must-be-at-least-32-characters-long"
 ALGORITHM="HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-DATABASE_URL="sqlite+aiosqlite:///./sql_app.db"
+DATABASE_URL="postgresql+asyncpg://postgres:password@localhost:5432/fastapi_training"
 ```
 
 **Important:** `.env` is in `.gitignore` - never commit secrets!

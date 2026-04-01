@@ -1,7 +1,7 @@
 """
 Shared fixtures and configuration for all tests.
-Uses async in-memory SQLite DB with SQLModel for isolation.
-Each test gets a fresh DB via TestClient with dependency override.
+Uses PostgreSQL DB for testing - same database as production.
+Each test should be isolated via transactions or cleanup.
 """
 import asyncio
 from typing import Generator
@@ -9,36 +9,33 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlmodel import SQLModel
+from sqlalchemy import text
 
 from src.fastapi_training.main import app
 from src.fastapi_training.api.deps import get_db
 from src.fastapi_training.core.security import create_access_token
+from src.fastapi_training.core.config import settings
 from datetime import timedelta
 
-from src.fastapi_training.models.user import User 
-from src.fastapi_training.models.project import Project 
-from src.fastapi_training.models.task import Task 
-from src.fastapi_training.models.refresh_token import RefreshToken 
+from src.fastapi_training.models.user import User
+from src.fastapi_training.models.project import Project
+from src.fastapi_training.models.task import Task
+from src.fastapi_training.models.refresh_token import RefreshToken
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Use PostgreSQL for tests (same as production)
+TEST_DATABASE_URL = settings.DATABASE_URL
 
 
 @pytest.fixture
 def client() -> Generator:
     """
-    Provide FastAPI TestClient backed by an isolated in-memory SQLite DB.
-    DB is created fresh for each test and torn down afterward.
+    Provide FastAPI TestClient backed by PostgreSQL.
+    Tables are created by Alembic migrations.
+    Test data is cleaned up after each test.
     """
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-
-    # Create all tables synchronously before the test
-    async def _create_tables():
-        async with engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
-
-    asyncio.get_event_loop().run_until_complete(_create_tables())
+    session_factory = async_sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async def _override_get_db():
         async with session_factory() as session:
@@ -49,13 +46,17 @@ def client() -> Generator:
     with TestClient(app, base_url="http://testserver/api/v1") as c:
         yield c
 
-    # Teardown
-    async def _drop_tables():
-        async with engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.drop_all)
-        await engine.dispose()
+    # Teardown: Clean up test data from PostgreSQL
+    async def _cleanup():
+        async with session_factory() as session:
+            # Delete in order to respect foreign keys
+            await session.execute(text('DELETE FROM refresh_tokens'))
+            await session.execute(text('DELETE FROM tasks'))
+            await session.execute(text('DELETE FROM projects'))
+            await session.execute(text('DELETE FROM users'))
+            await session.commit()
 
-    asyncio.get_event_loop().run_until_complete(_drop_tables())
+    asyncio.get_event_loop().run_until_complete(_cleanup())
     app.dependency_overrides.clear()
 
 
@@ -115,7 +116,8 @@ def test_user_refresh_token(client, test_user_db, test_user_data):
     """
     response = client.post(
         "/auth/login",
-        data={"username": test_user_data["email"], "password": test_user_data["password"]},
+        data={"username": test_user_data["email"],
+              "password": test_user_data["password"]},
     )
     assert response.status_code == 200, f"Login failed: {response.json()}"
     return response.json()["refresh_token"]

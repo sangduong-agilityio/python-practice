@@ -2,7 +2,7 @@
 Auth service — business logic for authentication.
 Coordinates between CRUD, security helpers, and the caller (route handlers).
 """
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
@@ -45,8 +45,9 @@ async def login(db: AsyncSession, email: str, password: str) -> LoginTokenRespon
     access_token = create_access_token(data={"sub": user.email})
 
     # Create refresh token
-    refresh_token_str, expires_at = create_refresh_token(data={"sub": user.email})
-    
+    refresh_token_str, expires_at = create_refresh_token(
+        data={"sub": user.email})
+
     # Hash and persist it in DB
     hashed_rt = hash_token(refresh_token_str)
     await rt_crud.create_refresh_token(
@@ -99,7 +100,7 @@ async def refresh(db: AsyncSession, refresh_token_str: str) -> TokenResponse:
         )
 
     # Extra safety: check DB-stored expiry (consistent with JWT exp)
-    if token_record.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+    if token_record.expires_at.replace(tzinfo=datetime.now().astimezone().tzinfo) < datetime.now(datetime.timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token has expired",
@@ -119,4 +120,3 @@ async def logout(db: AsyncSession, refresh_token_str: str) -> None:
     token_record = await rt_crud.get_refresh_token(db, token=hashed_rt)
     if token_record and not token_record.is_revoked:
         await rt_crud.revoke_refresh_token(db, token_record=token_record)
-

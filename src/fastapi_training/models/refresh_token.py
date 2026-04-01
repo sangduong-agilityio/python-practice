@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -28,7 +28,7 @@ class RefreshToken(SQLModel, table=True):
     is_revoked: bool = Field(default=False)
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=datetime.now
     )
 
     # Relationship (back-reference only; User does not need a forward ref here)

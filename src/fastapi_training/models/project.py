@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -14,7 +14,7 @@ class Project(SQLModel, table=True):
     name: str = Field(index=True)
     description: Optional[str] = Field(default=None, nullable=True)
     user_id: int = Field(foreign_key="users.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     owner: Optional["User"] = Relationship(

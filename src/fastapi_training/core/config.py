@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = Field(
-        default="sqlite+aiosqlite:///./sql_app.db",
+        default="postgresql+asyncpg://postgres:password@localhost:5432/fastapi_training",
         description="Async database connection URL",
     )
 

@@ -1,23 +1,26 @@
 import hashlib
 from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from bcrypt import hashpw, gensalt, checkpw
 
 from .config import settings
 
-# Password Hashing
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# Password Hashing using bcrypt directly
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash password using bcrypt"""
+    salt = gensalt()
+    hashed = hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify password against bcrypt hash"""
+    return checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def hash_token(token: str) -> str:
@@ -40,7 +43,7 @@ def create_access_token(
 ) -> str:
     to_encode = data.copy()
 
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now() + (
         expires_delta
         if expires_delta
         else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -68,7 +71,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     without re-decoding the token.
     """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now() + (
         expires_delta if expires_delta else timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
