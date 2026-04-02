@@ -7,14 +7,22 @@ from ...schemas.auth import RefreshTokenRequest, LogoutRequest, LoginTokenRespon
 from ..deps import get_db
 from ...services.user_service import create_user
 from ...services import auth_service
+from ...services.email_service import send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(
+    user_in: UserCreate,
+    db: AsyncSession = Depends(get_db)
+):
     """Register a new user account."""
     user = await create_user(db, user_in)
+    
+    # Send welcome email via Celery Redis Worker
+    send_welcome_email.delay(user.email)
+    
     return user
 
 

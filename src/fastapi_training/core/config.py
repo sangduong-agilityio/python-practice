@@ -29,6 +29,12 @@ class Settings(BaseSettings):
         description="Refresh token expiration time in days"
     )
 
+    # Celery
+    REDIS_URL: str = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL for Celery"
+    )
+
     # Database
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://postgres:password@localhost:5432/fastapi_training",
