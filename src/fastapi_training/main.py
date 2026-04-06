@@ -41,6 +41,13 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 
+from fastapi.responses import HTMLResponse
+
 @app.get("/")
 def root():
     return {"message": "API is running"}
+
+@app.get("/test-ws", response_class=HTMLResponse)
+async def test_ws_page():
+    with open("websocket_test.html", "r", encoding="utf-8") as f:
+        return f.read()

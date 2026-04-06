@@ -18,6 +18,8 @@ from ...models.user import User
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
+from .websocket_demo import notification_manager
+
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task_route(
     task: TaskCreate,
@@ -25,6 +27,14 @@ async def create_task_route(
     db: AsyncSession = Depends(get_db),
 ):
     new_task = await create_task(db, task, current_user.id)
+    
+    # Send a real-time notification to all connected clients
+    await notification_manager.broadcast({
+        "type": "new_task",
+        "message": f"User {current_user.email} created a new task: {new_task.title}",
+        "task_id": new_task.id
+    })
+    
     return new_task
 
 
@@ -83,7 +93,18 @@ async def update_task_route(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     if task.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to update this task")
-    return await update_task(db, task, task_update)
+    updated_task = await update_task(db, task, task_update)
+    
+    # Send a real-time notification about the update
+    # We broadcast the specific message including title and newest status
+    await notification_manager.broadcast({
+        "type": "status_update",
+        "message": f"User {current_user.email} updated task '{updated_task.title}' to: {updated_task.status}",
+        "task_id": updated_task.id,
+        "new_status": updated_task.status
+    })
+    
+    return updated_task
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
