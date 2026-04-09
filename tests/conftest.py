@@ -1,164 +1,106 @@
 """
-Shared fixtures and configuration for all tests.
-Uses PostgreSQL DB for testing - same database as production.
-Each test should be isolated via transactions or cleanup.
+Shared test fixtures.
+
+The test database uses SQLite in-memory so tests run without a live
+PostgreSQL instance. Each test gets its own transaction that is rolled
+back at the end, keeping tests isolated from each other.
 """
+
 import asyncio
-from typing import Generator
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import text
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.fastapi_training.main import app
-from src.fastapi_training.api.deps import get_db
-from src.fastapi_training.core.security import create_access_token
-from src.fastapi_training.core.config import settings
-from datetime import timedelta
+from app.core.dependencies import get_db
+from app.main import app
+from app.models.base import Base
 
-from src.fastapi_training.models.user import User
-from src.fastapi_training.models.project import Project
-from src.fastapi_training.models.task import Task
-from src.fastapi_training.models.refresh_token import RefreshToken
-
-# Use PostgreSQL for tests (same as production)
-TEST_DATABASE_URL = settings.DATABASE_URL
+TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
 
-@pytest.fixture
-def client() -> Generator:
-    """
-    Provide FastAPI TestClient backed by PostgreSQL.
-    Tables are created by Alembic migrations.
-    Test data is cleaned up after each test.
-    """
-    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-    session_factory = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False)
+@pytest.fixture(scope="session")
+def event_loop():
+    # A single event loop for the whole test session is required when
+    # session-scoped async fixtures share state across tests.
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
-    async def _override_get_db():
-        async with session_factory() as session:
-            yield session
 
-    app.dependency_overrides[get_db] = _override_get_db
+@pytest_asyncio.fixture(scope="session")
+async def engine():
+    test_engine = create_async_engine(
+        TEST_DB_URL,
+        connect_args={"check_same_thread": False},
+    )
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-    with TestClient(app, base_url="http://testserver/api/v1") as c:
-        yield c
+    yield test_engine
 
-    # Teardown: Clean up test data from PostgreSQL
-    async def _cleanup():
-        async with session_factory() as session:
-            # Delete in order to respect foreign keys
-            await session.execute(text('DELETE FROM refresh_tokens'))
-            await session.execute(text('DELETE FROM tasks'))
-            await session.execute(text('DELETE FROM projects'))
-            await session.execute(text('DELETE FROM users'))
-            await session.commit()
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await test_engine.dispose()
 
-    asyncio.get_event_loop().run_until_complete(_cleanup())
+
+@pytest_asyncio.fixture
+async def db_session(engine) -> AsyncSession:
+    TestSession = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with TestSession() as session:
+        yield session
+        await session.rollback()
+
+
+@pytest_asyncio.fixture
+async def client(db_session: AsyncSession) -> AsyncClient:
+    # Override the real DB dependency with the test session so route
+    # handlers operate on the same in-memory database as the test.
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
     app.dependency_overrides.clear()
 
 
-# --- User Data Fixtures ---
+# ---------------------------------------------------------------------------
+# Reusable helpers -- not fixtures themselves, called inside tests or
+# other fixtures that need an authenticated user.
+# ---------------------------------------------------------------------------
 
-@pytest.fixture
-def test_user_data():
-    """Provide test user data."""
-    return {
-        "email": "test@example.com",
-        "password": "TestPassword123",
-    }
+TEST_USER = {
+    "email": "alice@example.com",
+    "username": "alice",
+    "password": "strongpassword1",
+}
 
-
-@pytest.fixture
-def test_second_user_data():
-    """Provide second test user data."""
-    return {
-        "email": "second@example.com",
-        "password": "SecondPass123",
-    }
+SECOND_USER = {
+    "email": "bob@example.com",
+    "username": "bob",
+    "password": "strongpassword2",
+}
 
 
-@pytest.fixture
-def test_user_db(client, test_user_data):
-    """Register a test user via the API and return user dict."""
-    response = client.post("/auth/register", json=test_user_data)
-    assert response.status_code == 201, f"Registration failed: {response.json()}"
-    return response.json()
+async def create_user(client: AsyncClient, payload: dict = TEST_USER) -> dict:
+    r = await client.post("/api/v1/auth/register", json=payload)
+    assert r.status_code == 201, r.text
+    return r.json()
 
 
-@pytest.fixture
-def test_second_user_db(client, test_second_user_data):
-    """Register a second test user via the API and return user dict."""
-    response = client.post("/auth/register", json=test_second_user_data)
-    assert response.status_code == 201, f"Registration failed: {response.json()}"
-    return response.json()
-
-
-@pytest.fixture
-def test_user_token(test_user_data):
-    """Generate access token for test user (without DB lookup)."""
-    return create_access_token(data={"sub": test_user_data["email"]})
-
-
-@pytest.fixture
-def test_second_user_token(test_second_user_data):
-    """Generate access token for second test user."""
-    return create_access_token(data={"sub": test_second_user_data["email"]})
-
-
-@pytest.fixture
-def test_user_refresh_token(client, test_user_db, test_user_data):
-    """
-    Obtain a refresh token via the login API so it is persisted in the DB.
-    This is required because the /refresh endpoint now validates tokens against DB.
-    """
-    response = client.post(
-        "/auth/login",
-        data={"username": test_user_data["email"],
-              "password": test_user_data["password"]},
+async def get_token(client: AsyncClient, payload: dict = TEST_USER) -> str:
+    r = await client.post(
+        "/api/v1/auth/login",
+        data={"username": payload["email"], "password": payload["password"]},
     )
-    assert response.status_code == 200, f"Login failed: {response.json()}"
-    return response.json()["refresh_token"]
+    assert r.status_code == 200, r.text
+    return r.json()["access_token"]
 
 
-@pytest.fixture
-def test_user_expired_token(test_user_data):
-    """Generate an expired token for test user."""
-    return create_access_token(
-        data={"sub": test_user_data["email"]},
-        expires_delta=timedelta(minutes=-10)
-    )
-
-
-@pytest.fixture
-def auth_headers(test_user_db, test_user_token):
-    """Provide authorization headers with valid token. Depends on test_user_db to ensure user exists in DB."""
-    return {"Authorization": f"Bearer {test_user_token}"}
-
-
-@pytest.fixture
-def second_auth_headers(test_second_user_db, test_second_user_token):
-    """Provide authorization headers for second user."""
-    return {"Authorization": f"Bearer {test_second_user_token}"}
-
-
-@pytest.fixture
-def test_task_data():
-    """Provide test task data."""
-    return {
-        "title": "Test Task",
-        "description": "This is a test task",
-        "status": "pending",
-        "project_id": None,
-    }
-
-
-@pytest.fixture
-def test_project_data():
-    """Provide test project data."""
-    return {
-        "name": "Test Project",
-        "description": "This is a test project",
-    }
+async def auth_headers(client: AsyncClient, payload: dict = TEST_USER) -> dict:
+    token = await get_token(client, payload)
+    return {"Authorization": f"Bearer {token}"}

@@ -1,55 +1,9 @@
-# === Python ===
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Distribution / packaging
-build/
-dist/
-wheels/
-*.egg-info/
-*.egg
-
-# === Virtual Environments ===
 .env
-.venv
-env/
-venv/
-ENV/
-
-# === Databases ===
-*.db
-*.sqlite
-*.sqlite3
-*.db-wal
-*.db-shm
-sql_app.db
-
-# === Testing & Coverage ===
-.coverage
-.coverage.*
-coverage.xml
-htmlcov/
+__pycache__/
+*.pyc
+*.pyo
 .pytest_cache/
-
-# === Logging ===
-*.log
-logs/
-
-# === IDEs and Editors ===
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# === Type Checking & Linters ===
-.mypy_cache/
 .ruff_cache/
-
-# === OS generated files ===
-.DS_Store
-Thumbs.db
-
-# === Debug scripts (Project specific) ===
-debug_*.py
+.venv/
+dist/
+*.egg-info/

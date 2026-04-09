@@ -1,0 +1,99 @@
+"""
+Application entry point.
+
+create_app() is a factory function rather than a module-level app = FastAPI()
+so tests can import create_app and call it with different settings without
+the side effects of module-level code running at import time.
+"""
+
+import logging
+from contextlib import asynccontextmanager
+
+import structlog
+
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.core.exceptions import (
+    AppException,
+    PermissionDeniedException,
+    ResourceAlreadyExistsException,
+    ResourceNotFoundException,
+)
+
+from app.api.v1.router import v1_router
+from app.core.config import settings
+from app.core.logger import setup_logging
+from app.middleware.logging import LoggingMiddleware
+
+# Initialize structured logging globally
+setup_logging()
+
+log = structlog.get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log.info("startup")
+    yield
+    log.info("shutdown")
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="Task Management API",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
+
+    # CORSMiddleware must be registered before any custom middleware
+    # so it can handle preflight OPTIONS requests before they hit our code.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(o) for o in settings.CORS_ORIGINS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(LoggingMiddleware)
+
+    @app.exception_handler(ResourceNotFoundException)
+    async def not_found_handler(_: Request, exc: ResourceNotFoundException) -> JSONResponse:
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": exc.message})
+
+    @app.exception_handler(PermissionDeniedException)
+    async def forbidden_handler(_: Request, exc: PermissionDeniedException) -> JSONResponse:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": exc.message})
+
+    @app.exception_handler(ResourceAlreadyExistsException)
+    async def conflict_handler(_: Request, exc: ResourceAlreadyExistsException) -> JSONResponse:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message})
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": "Invalid input data", "errors": exc.errors()},
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled(_: Request, exc: Exception) -> JSONResponse:
+        # Log the real error server-side, return a generic message to the client.
+        log.exception("Unhandled exception: %s", exc)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"},
+        )
+
+    app.include_router(v1_router, prefix="/api/v1")
+
+    @app.get("/health", tags=["health"])
+    async def health() -> dict:
+        return {"status": "ok"}
+
+    return app
+
+
+app = create_app()
