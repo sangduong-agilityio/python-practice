@@ -72,7 +72,7 @@ async def get_current_user(
         raise unauthorized
 
     try:
-        user_id = uuid.UUID(user_id_str)
+        user_id = int(user_id_str)
     except ValueError:
         raise unauthorized
 

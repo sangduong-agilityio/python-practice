@@ -5,8 +5,6 @@ Tags are global -- not scoped to a user or project. Any task can carry
 any tag. The color column stores a hex code used by the frontend.
 """
 
-import uuid
-
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,7 +15,7 @@ from app.models.task import task_tags
 class Tag(Base):
     __tablename__ = "tags"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     color: Mapped[str] = mapped_column(String(7), default="#6366f1", nullable=False)
 

@@ -6,8 +6,6 @@ filter by user. Business-rule enforcement (duplicate name, etc.) lives
 in the service layer.
 """
 
-import uuid
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +18,7 @@ class TagRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, tag_id: uuid.UUID) -> Tag | None:
+    async def get_by_id(self, tag_id: int) -> Tag | None:
         """Fetch a single tag by primary key, or ``None`` if it does not exist."""
         result = await self.db.execute(select(Tag).where(Tag.id == tag_id))
         return result.scalar_one_or_none()

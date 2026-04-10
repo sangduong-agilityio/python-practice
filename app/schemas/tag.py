@@ -1,5 +1,3 @@
-import uuid
-
 from pydantic import BaseModel, Field
 
 
@@ -10,7 +8,7 @@ class TagCreate(BaseModel):
 
 
 class TagResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     name: str
     color: str
 

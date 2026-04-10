@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -32,14 +31,14 @@ class TaskStatusUpdate(BaseModel):
 
 class TaskAssignUpdate(BaseModel):
     # Passing null explicitly unassigns the task.
-    assignee_id: uuid.UUID | None = None
+    assignee_id: int | None = None
 
 
 class TaskResponse(TaskBase):
-    id: uuid.UUID
+    id: int
     status: TaskStatus
-    project_id: uuid.UUID
-    assignee_id: uuid.UUID | None
+    project_id: int
+    assignee_id: int | None
     tags: list[TagResponse] = []
     created_at: datetime
     updated_at: datetime

@@ -8,7 +8,7 @@ from fastapi import APIRouter
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.schemas.user import UserResponse, UserUpdate
-from app.services import user_service
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -20,5 +20,5 @@ async def get_me(current_user: CurrentUser) -> UserResponse:
 
 @router.put("/me", response_model=UserResponse)
 async def update_me(data: UserUpdate, current_user: CurrentUser, db: DbSession) -> UserResponse:
-    updated = await user_service.update_profile(db, current_user, data)
+    updated = await UserService(db).update_profile(current_user, data)
     return updated 

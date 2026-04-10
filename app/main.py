@@ -15,6 +15,8 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.exceptions import (
     AppException,
@@ -26,6 +28,7 @@ from app.core.exceptions import (
 from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.logger import setup_logging
+from app.core.rate_limit import limiter
 from app.middleware.logging import LoggingMiddleware
 
 # Initialize structured logging globally
@@ -47,6 +50,9 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
     )
+    
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # CORSMiddleware must be registered before any custom middleware
     # so it can handle preflight OPTIONS requests before they hit our code.

@@ -3,8 +3,8 @@ Central configuration.
 
 pydantic-settings reads values from environment variables first,
 then falls back to the .env file. The app will not start if a required
-variable is missing -- that's intentional, better to fail fast at boot
-than get a KeyError at 3am in production.
+variable is missing -- that is intentional: fail fast at boot rather
+than encounter a KeyError at 3am in production.
 """
 
 from pydantic import AnyHttpUrl
@@ -20,8 +20,19 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # CORS -- stored as a JSON list in the env file
+    # CORS -- stored as a JSON array in the env file
     CORS_ORIGINS: list[AnyHttpUrl] = []
+
+    # Redis -- used for Celery broker/backend and response caching
+    REDIS_URL: str = "redis://localhost:6379/0"
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+
+    # Cache TTL in seconds for GET /projects and GET /tags
+    CACHE_TTL_SECONDS: int = 60
+
+    # Logging
+    LOG_LEVEL: str = "INFO"
 
     # Email -- optional, sending is skipped when SMTP_USER is blank
     SMTP_HOST: str = "smtp.gmail.com"

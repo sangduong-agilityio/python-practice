@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -20,8 +19,8 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectResponse(ProjectBase):
-    id: uuid.UUID
-    owner_id: uuid.UUID
+    id: int
+    owner_id: int
     created_at: datetime
     updated_at: datetime
 

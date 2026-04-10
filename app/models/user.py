@@ -5,8 +5,6 @@ UUID primary keys are preferred over auto-increment integers because
 they do not leak row counts and are safe to expose in URLs.
 """
 
-import uuid
-
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,7 +14,7 @@ from app.models.base import Base, TimestampMixin
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)

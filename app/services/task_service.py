@@ -1,267 +1,171 @@
 """
 Task business logic.
-
-Tasks are scoped to projects, so every operation first verifies
-the project exists and the caller owns it before touching the task.
 """
 
-import uuid
-
-from fastapi import BackgroundTasks, HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
-from app.repositories import task_repository, user_repository
+from app.repositories.project_repository import ProjectRepository
 from app.repositories.tag_repository import TagRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.user_repository import UserRepository
+from app.core.websocket import manager
 from app.schemas.task import (
     TaskAssignUpdate,
     TaskCreate,
     TaskStatusUpdate,
     TaskUpdate,
 )
-from app.services import project_service
-from app.services.email_service import send_task_assigned
+from app.worker.tasks import send_task_assigned_email
 
 
-async def get_or_404(db: AsyncSession, task_id: uuid.UUID) -> Task:
-    """Fetch a task by ID or raise a 404 error if not found.
+class TaskService:
+    """Handles task-related business operations."""
 
-    Args:
-        db: Database session.
-        task_id: UUID of the task.
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+        self.repo = TaskRepository(db)
+        self.project_repo = ProjectRepository(db)
+        self.user_repo = UserRepository(db)
+        self.tag_repo = TagRepository(db)
 
-    Returns:
-        The matched Task instance.
+    async def get_or_404(self, task_id: int) -> Task:
+        """Fetch a task by ID or raise a 404 error if not found."""
+        task = await self.repo.get_by_id(task_id)
+        if task is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        return task
 
-    Raises:
-        HTTPException 404: If no task with the given ID exists.
-    """
-    task = await task_repository.get_by_id(db, task_id)
-    if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    return task
+    async def _assert_project_access(self, task: Task, user: User) -> None:
+        """Verify that a user has access to a given task via its parent project."""
+        project = await self.project_repo.get_by_id(task.project_id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        
+        if project.owner_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not own this project",
+            )
 
+    async def create(self, project_id: int, data: TaskCreate, current_user: User) -> Task:
+        """Create a new task under a specific project."""
+        project = await self.project_repo.get_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        
+        if project.owner_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not own this project",
+            )
 
-async def _assert_project_access(db: AsyncSession, task: Task, user: User) -> None:
-    """Verify that a user has access to a given task via its parent project.
+        task = Task(
+            title=data.title,
+            description=data.description,
+            priority=data.priority,
+            due_date=data.due_date,
+            project_id=project.id,
+        )
+        return await self.repo.create(task)
 
-    Tasks inherit access control from their project. This function ensures
-    the user is the owner of the project containing the task.
+    async def list_for_project(
+        self,
+        project_id: int,
+        current_user: User,
+        status_filter: TaskStatus | None = None,
+        priority_filter: TaskPriority | None = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> list[Task]:
+        """Retrieve a paginated list of tasks for a project."""
+        project = await self.project_repo.get_by_id(project_id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+            
+        if project.owner_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not own this project",
+            )
+            
+        return await self.repo.get_by_project(
+            project_id=project.id,
+            status=status_filter,
+            priority=priority_filter,
+            skip=skip,
+            limit=limit,
+        )
 
-    Args:
-        db: Database session.
-        task: The Task instance being accessed.
-        user: The User instance attempting access.
+    async def update(self, task_id: int, data: TaskUpdate, current_user: User) -> Task:
+        """Update general fields of a task."""
+        task = await self.get_or_404(task_id)
+        await self._assert_project_access(task, current_user)
+        
+        updates = data.model_dump(exclude_unset=True)
+        if not updates:
+            return task
+            
+        return await self.repo.update(task, updates)
 
-    Raises:
-        HTTPException 403: If the user is not the owner of the parent project.
-    """
-    # Reuse the project-level ownership check rather than duplicating it here.
-    project = await project_service.get_or_404(db, task.project_id)
-    project_service.assert_owner(project, user)
+    async def change_status(self, task_id: int, data: TaskStatusUpdate, current_user: User) -> Task:
+        """Change only the status field of a task."""
+        task = await self.get_or_404(task_id)
+        await self._assert_project_access(task, current_user)
+        return await self.repo.update(task, {"status": data.status})
 
+    async def assign(self, task_id: int, data: TaskAssignUpdate, current_user: User) -> Task:
+        """Assign or unassign a user to a task."""
+        task = await self.get_or_404(task_id)
+        await self._assert_project_access(task, current_user)
 
-async def create(
-    db: AsyncSession,
-    project_id: uuid.UUID,
-    data: TaskCreate,
-    current_user: User,
-) -> Task:
-    """Create a new task under a specific project.
+        if data.assignee_id is not None:
+            assignee = await self.user_repo.get_by_id(data.assignee_id)
+            if assignee is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
 
-    Args:
-        db: Database session.
-        project_id: UUID of the project the task belongs to.
-        data: Validation schema for the new task.
-        current_user: The authenticated User initiating the request.
+            # Fire-and-forget via Celery
+            send_task_assigned_email.delay(assignee.email, task.title, current_user.username)
+            
+            # Dispatch real-time notification via WebSocket
+            await manager.send_personal_message(
+                {
+                    "event": "task_assigned",
+                    "task_id": task.id,
+                    "task_title": task.title,
+                    "assigner": current_user.username,
+                },
+                assignee.id
+            )
 
-    Returns:
-        The created Task instance.
+        return await self.repo.update(task, {"assignee_id": data.assignee_id})
 
-    Raises:
-        HTTPException 403: If the current user does not own the project.
-        HTTPException 404: If the project does not exist.
-    """
-    project = await project_service.get_or_404(db, project_id)
-    project_service.assert_owner(project, current_user)
+    async def delete(self, task_id: int, current_user: User) -> None:
+        """Delete a task permanently."""
+        task = await self.get_or_404(task_id)
+        await self._assert_project_access(task, current_user)
+        await self.repo.delete(task)
 
-    task = Task(
-        title=data.title,
-        description=data.description,
-        priority=data.priority,
-        due_date=data.due_date,
-        project_id=project.id,
-    )
-    return await task_repository.create(db, task)
+    async def attach_tag(self, task_id: int, tag_id: int, current_user: User) -> Task:
+        """Link a global tag to a specific task."""
+        task = await self.get_or_404(task_id)
+        await self._assert_project_access(task, current_user)
 
+        tag = await self.tag_repo.get_by_id(tag_id)
+        if tag is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
 
-async def list_for_project(
-    db: AsyncSession,
-    project_id: uuid.UUID,
-    current_user: User,
-    status_filter: TaskStatus | None = None,
-    priority_filter: TaskPriority | None = None,
-    skip: int = 0,
-    limit: int = 50,
-) -> list[Task]:
-    """Retrieve a paginated list of tasks for a project, optionally filtered.
+        return await self.repo.add_tag(task.id, tag)
 
-    Args:
-        db: Database session.
-        project_id: UUID of the project.
-        current_user: The User requesting the list.
-        status_filter: Optional status to filter by.
-        priority_filter: Optional priority to filter by.
-        skip: Pagination offset.
-        limit: Maximum number of tasks to return.
+    async def detach_tag(self, task_id: int, tag_id: int, current_user: User) -> Task:
+        """Unlink a tag from a task."""
+        task = await self.get_or_404(task_id)
+        await self._assert_project_access(task, current_user)
 
-    Returns:
-        A list of Task instances belonging to the project.
-    """
-    project = await project_service.get_or_404(db, project_id)
-    project_service.assert_owner(project, current_user)
-    return await task_repository.get_by_project(
-        db, project_id,
-        status=status_filter,
-        priority=priority_filter,
-        skip=skip,
-        limit=limit,
-    )
+        tag = await self.tag_repo.get_by_id(tag_id)
+        if tag is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
 
-
-async def update(
-    db: AsyncSession,
-    task_id: uuid.UUID,
-    data: TaskUpdate,
-    current_user: User,
-) -> Task:
-    """Update general fields of a task.
-
-    Args:
-        db: Database session.
-        task_id: UUID of the task.
-        data: Schema containing fields to update.
-        current_user: Authenticated User initiating the request.
-
-    Returns:
-        The updated Task instance.
-    """
-    task = await get_or_404(db, task_id)
-    await _assert_project_access(db, task, current_user)
-    # exclude_unset rather than exclude_none so callers can explicitly
-    # clear a nullable field by sending null in the request body.
-    return await task_repository.update(db, task, data.model_dump(exclude_unset=True))
-
-
-async def change_status(
-    db: AsyncSession,
-    task_id: uuid.UUID,
-    data: TaskStatusUpdate,
-    current_user: User,
-) -> Task:
-    task = await get_or_404(db, task_id)
-    await _assert_project_access(db, task, current_user)
-    return await task_repository.update(db, task, {"status": data.status})
-
-
-async def assign(
-    db: AsyncSession,
-    task_id: uuid.UUID,
-    data: TaskAssignUpdate,
-    current_user: User,
-    background_tasks: BackgroundTasks,
-) -> Task:
-    """Assign or unassign a user to a task.
-
-    If assigned to a new user, an email notification is pushed to a background worker.
-
-    Args:
-        db: Database session.
-        task_id: UUID of the task.
-        data: Contains the assignee_id (or None to unassign).
-        current_user: Authenticated User initiating the request.
-        background_tasks: BackgroundTasks for email dispatcher.
-
-    Returns:
-        The updated Task instance.
-    """
-    task = await get_or_404(db, task_id)
-    await _assert_project_access(db, task, current_user)
-
-    if data.assignee_id is not None:
-        assignee = await user_repository.get_by_id(db, data.assignee_id)
-        if assignee is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
-        background_tasks.add_task(send_task_assigned, assignee.email, assignee.username, task.title)
-
-    return await task_repository.update(db, task, {"assignee_id": data.assignee_id})
-
-
-async def delete(db: AsyncSession, task_id: uuid.UUID, current_user: User) -> None:
-    """Delete a task permanently.
-
-    Args:
-        db: Database session.
-        task_id: UUID of the task.
-        current_user: Authenticated User initiating the request.
-    """
-    task = await get_or_404(db, task_id)
-    await _assert_project_access(db, task, current_user)
-    await task_repository.delete(db, task)
-
-
-async def attach_tag(
-    db: AsyncSession,
-    task_id: uuid.UUID,
-    tag_id: uuid.UUID,
-    current_user: User,
-) -> Task:
-    """Link a global tag to a specific task.
-
-    Args:
-        db: Database session.
-        task_id: UUID of the task.
-        tag_id: UUID of the tag.
-        current_user: Authenticated User making the request.
-
-    Returns:
-        The updated Task instance with tags loaded.
-    """
-    task = await get_or_404(db, task_id)
-    await _assert_project_access(db, task, current_user)
-
-    tag_repo = TagRepository(db)
-    tag = await tag_repo.get_by_id(tag_id)
-    if tag is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
-
-    return await task_repository.add_tag(db, task_id, tag)
-
-
-async def detach_tag(
-    db: AsyncSession,
-    task_id: uuid.UUID,
-    tag_id: uuid.UUID,
-    current_user: User,
-) -> Task:
-    """Unlink a tag from a task.
-
-    Args:
-        db: Database session.
-        task_id: UUID of the task.
-        tag_id: UUID of the tag.
-        current_user: Authenticated User.
-
-    Returns:
-        The updated Task instance with remaining tags.
-    """
-    task = await get_or_404(db, task_id)
-    await _assert_project_access(db, task, current_user)
-
-    tag_repo = TagRepository(db)
-    tag = await tag_repo.get_by_id(tag_id)
-    if tag is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found")
-
-    return await task_repository.remove_tag(db, task_id, tag)
+        return await self.repo.remove_tag(task.id, tag)

@@ -8,7 +8,6 @@ The naming convention used throughout this codebase:
   Response -- what goes back to the caller (never the password hash)
 """
 
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
@@ -31,7 +30,7 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: uuid.UUID
+    id: int
     is_active: bool
     created_at: datetime
 
