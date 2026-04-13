@@ -14,6 +14,9 @@ import redis.asyncio as aioredis
 
 from app.core.config import settings
 
+# Prefix used for all blacklisted access-token keys.
+_BLACKLIST_PREFIX = "token_blacklist:"
+
 # Module-level client reused across requests within the same process.
 # The async client is thread-safe and connection-pool-backed by default.
 _redis: aioredis.Redis | None = None
@@ -91,3 +94,35 @@ async def cache_delete_pattern(pattern: str) -> None:
     keys = await client.keys(pattern)
     if keys:
         await client.delete(*keys)
+
+
+
+async def blacklist_token(token: str, ttl_seconds: int) -> None:
+    """Add an access token to the blacklist so it cannot be reused.
+
+    The key expires automatically after ``ttl_seconds`` -- the remaining
+    lifetime of the token -- so Redis never accumulates stale entries.
+
+    Args:
+        token: The raw JWT string to invalidate.
+        ttl_seconds: Seconds until the token would have expired naturally.
+                     Pass 0 to use a minimum of 1 second (avoids a SETEX error).
+    """
+    client = get_redis_client()
+    key = f"{_BLACKLIST_PREFIX}{token}"
+    ttl = max(ttl_seconds, 1)
+    await client.setex(key, ttl, "1")
+
+
+async def is_token_blacklisted(token: str) -> bool:
+    """Return True if the token has been added to the blacklist (i.e. logged out).
+
+    Args:
+        token: The raw JWT string to check.
+
+    Returns:
+        True if the token is blacklisted, False otherwise.
+    """
+    client = get_redis_client()
+    key = f"{_BLACKLIST_PREFIX}{token}"
+    return await client.exists(key) == 1

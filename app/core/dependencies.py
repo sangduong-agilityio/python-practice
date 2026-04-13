@@ -17,6 +17,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import is_token_blacklisted
 from app.core.security import decode_access_token
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
@@ -44,9 +45,10 @@ async def get_current_user(
 ) -> User:
     """Resolve the Bearer token to an active ``User`` ORM object.
 
-    Decodes the JWT, validates the ``sub`` claim is a well-formed UUID, and
-    confirms the user still exists and is active. Raises ``HTTP 401`` for any
-    token issue and ``HTTP 403`` if the account has been deactivated.
+    Decodes the JWT, checks the token against the Redis blacklist (to support
+    logout), validates the ``sub`` claim is a well-formed integer, and confirms
+    the user still exists and is active.  Raises ``HTTP 401`` for any token
+    issue and ``HTTP 403`` if the account has been deactivated.
 
     Args:
         token: Raw Bearer token extracted from the ``Authorization`` header by
@@ -57,8 +59,8 @@ async def get_current_user(
         The authenticated, active ``User`` instance.
 
     Raises:
-        HTTPException 401: Token is missing, expired, tampered, or the subject
-                           UUID does not exist in the database.
+        HTTPException 401: Token is missing, expired, blacklisted, tampered,
+                           or the subject integer does not exist in the database.
         HTTPException 403: The account matched the token but is marked inactive.
     """
     unauthorized = HTTPException(
@@ -69,6 +71,10 @@ async def get_current_user(
 
     user_id_str = decode_access_token(token)
     if user_id_str is None:
+        raise unauthorized
+
+    # Reject tokens that have been explicitly revoked (logout).
+    if await is_token_blacklisted(token):
         raise unauthorized
 
     try:
@@ -89,3 +95,6 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+# Exposes the raw JWT string so that the logout endpoint can blacklist it.
+RawToken = Annotated[str, Depends(oauth2_scheme)]

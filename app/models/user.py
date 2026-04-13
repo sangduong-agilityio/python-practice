@@ -30,6 +30,11 @@ class User(Base, TimestampMixin):
         back_populates="assignee",
         foreign_keys="Task.assignee_id",
     )
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(  # type: ignore[name-defined]
+        "RefreshToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<User {self.email}>"
