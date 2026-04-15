@@ -11,8 +11,11 @@ import json
 from typing import Any
 
 import redis.asyncio as aioredis
+import structlog
 
 from app.core.config import settings
+
+log = structlog.get_logger(__name__)
 
 # Prefix used for all blacklisted access-token keys.
 _BLACKLIST_PREFIX = "token_blacklist:"
@@ -94,7 +97,10 @@ async def cache_delete_pattern(pattern: str) -> None:
     keys = await client.keys(pattern)
     if keys:
         await client.delete(*keys)
-
+        log.info("cache_invalidated", pattern=pattern, keys_deleted=len(keys))
+    else:
+        log.debug("cache_invalidation_noop",
+                  pattern=pattern, reason="no_matching_keys")
 
 
 async def blacklist_token(token: str, ttl_seconds: int) -> None:

@@ -19,8 +19,26 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 async def register(request: Request, data: UserCreate, db: DbSession) -> UserResponse:
-    """Register a new user account."""
-    user = await UserService(db).register(data)
+    """Register a new user account.
+
+    Creates a new user with the provided email, username, and password.
+    Dispatches a welcome email via Celery background task.
+
+    Args:
+        request: FastAPI request object (used to extract request_id).
+        data: User creation schema containing email, username, and password.
+        db: Database session dependency.
+
+    Returns:
+        UserResponse: The created user object.
+
+    Raises:
+        ResourceAlreadyExistsException (409): Email or username already registered.
+    """
+    # Extract or generate request_id for tracing
+    request_id = request.headers.get(
+        "X-Request-ID") or request.scope.get("state", {}).get("request_id", "unknown")
+    user = await UserService(db).register(data, request_id=request_id)
     return user
 
 
@@ -35,6 +53,17 @@ async def login(
 
     The refresh token is an opaque random string whose SHA-256 hash is stored
     in the database.  Device info and IP are captured for session management.
+
+    Args:
+        request: FastAPI request object.
+        form_data: OAuth2 form with username (email) and password fields.
+        db: Database session dependency.
+
+    Returns:
+        Token: Contains access_token (JWT) and refresh_token (opaque string).
+
+    Raises:
+        PermissionDeniedException (403): Email not found, password incorrect, or account inactive.
     """
     return await UserService(db).login(
         form_data.username, form_data.password, request=request

@@ -13,8 +13,8 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
       REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      CELERY_BROKER_URL: sqla+postgresql://postgres:postgres@db:5432/taskdb
+      CELERY_RESULT_BACKEND: db+postgresql://postgres:postgres@db:5432/taskdb
       CACHE_TTL_SECONDS: 60
       LOG_LEVEL: INFO
       SMTP_USER: ${SMTP_USER:-}
@@ -38,8 +38,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/taskdb
       SECRET_KEY: change-this-in-production
       REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      CELERY_BROKER_URL: sqla+postgresql://postgres:postgres@db:5432/taskdb
+      CELERY_RESULT_BACKEND: db+postgresql://postgres:postgres@db:5432/taskdb
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     depends_on:

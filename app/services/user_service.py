@@ -1,16 +1,17 @@
 """
 User business logic.
 
-Services are the only layer that raise HTTPException. Repositories return
-None on miss; services decide what that means in context (404, 401, etc.).
+Services raise custom domain exceptions (ResourceNotFoundException, PermissionDeniedException, etc).
+Repositories return None on miss; services decide what that means in context.
 """
 import structlog
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import blacklist_token, is_token_blacklisted
 from app.core.config import settings
+from app.core.exceptions import InvalidFieldException, PermissionDeniedException, ResourceNotFoundException, ResourceAlreadyExistsException
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
@@ -38,19 +39,13 @@ class UserService:
         self.repo = UserRepository(db)
         self.token_repo = RefreshTokenRepository(db)
 
-    async def register(self, data: UserCreate) -> User:
+    async def register(self, data: UserCreate, request_id: str = "unknown") -> User:
         """Register a new user and dispatch a welcome email via Celery."""
         if await self.repo.get_by_email(data.email):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
-            )
+            raise ResourceAlreadyExistsException("Email is already registered")
 
         if await self.repo.get_by_username(data.username):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Username already taken",
-            )
+            raise ResourceAlreadyExistsException("Username is already taken")
 
         user = User(
             email=data.email,
@@ -60,7 +55,15 @@ class UserService:
         user = await self.repo.create(user)
 
         # Fire-and-forget via Celery
-        send_welcome_email.delay(user.email, user.username)
+        task = send_welcome_email.delay(user.email, user.username, request_id)
+        log.info(
+            "background_task_dispatched",
+            task_name="send_welcome_email",
+            task_id=task.id,
+            email=user.email,
+            username=user.username,
+            request_id=request_id,
+        )
 
         return user
 
@@ -82,25 +85,15 @@ class UserService:
             A ``Token`` containing both tokens.
 
         Raises:
-            HTTPException 401: Credentials are wrong.
-            HTTPException 403: Account is inactive.
+            PermissionDeniedException: Credentials are wrong or account is inactive.
         """
         user = await self.repo.get_by_email(email)
 
-        bad_credentials = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
         if user is None or not verify_password(password, user.hashed_password):
-            raise bad_credentials
+            raise PermissionDeniedException("Incorrect email or password")
 
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account is inactive",
-            )
+            raise PermissionDeniedException("Account is inactive")
 
         return await self._issue_token_pair(user, request)
 
@@ -114,27 +107,21 @@ class UserService:
             A new ``Token`` containing a fresh access and refresh token.
 
         Raises:
-            HTTPException 401: Token is invalid, expired, revoked, or being reused.
+            PermissionDeniedException: Token is invalid, expired, revoked, or being reused.
         """
-        invalid = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
         token_hash = hash_token(raw_refresh_token)
         db_token = await self.token_repo.get_by_hash(token_hash)
 
         if db_token is None or db_token.is_revoked:
-            raise invalid
+            raise PermissionDeniedException("Invalid or expired refresh token")
 
         # Check expiry at the application layer.
         expires_at = db_token.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
-            
+
         if expires_at < datetime.now(timezone.utc):
-            raise invalid
+            raise PermissionDeniedException("Invalid or expired refresh token")
 
         # If ``used_at`` is already set the token was already rotated.
         # Someone (possibly an attacker) is replaying an old refresh token.
@@ -146,12 +133,12 @@ class UserService:
             )
             # Revoke ALL sessions for this user to be safe.
             await self.token_repo.revoke_all_for_user(db_token.user_id)
-            raise invalid
+            raise PermissionDeniedException("Invalid or expired refresh token")
 
         # Load user and confirm still active.
         user = await self.repo.get_by_id(db_token.user_id)
         if user is None or not user.is_active:
-            raise invalid
+            raise PermissionDeniedException("Invalid or expired refresh token")
 
         # Mark old token as used (rotation -- one-time-use).
         await self.token_repo.mark_used(db_token)
@@ -189,20 +176,19 @@ class UserService:
         if "email" in updates:
             existing = await self.repo.get_by_email(updates["email"])
             if existing and existing.id != user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Email already in use",
-                )
+                raise ResourceAlreadyExistsException("Email is already in use")
 
         if "username" in updates:
             existing = await self.repo.get_by_username(updates["username"])
             if existing and existing.id != user.id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Username already taken",
-                )
+                raise ResourceAlreadyExistsException(
+                    "Username is already taken")
 
-        return await self.repo.update(user, updates)
+        try:
+            return await self.repo.update(user, updates)
+        except ValueError as e:
+            raise InvalidFieldException(
+                str(e).replace("Cannot update field: ", ""))
 
     async def _issue_token_pair(
         self,
@@ -248,7 +234,6 @@ class UserService:
         )
 
         return Token(access_token=access_token, refresh_token=raw_refresh)
-
 
 
 def _get_client_ip(request: Request) -> str | None:

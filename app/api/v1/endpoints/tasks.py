@@ -2,7 +2,7 @@
 Task endpoints.
 """
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.task import TaskPriority, TaskStatus
@@ -32,7 +32,8 @@ async def list_tasks(
     current_user: CurrentUser,
     db: DbSession,
     status_filter: TaskStatus | None = Query(default=None, alias="status"),
-    priority_filter: TaskPriority | None = Query(default=None, alias="priority"),
+    priority_filter: TaskPriority | None = Query(
+        default=None, alias="priority"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[TaskResponse]:
@@ -77,12 +78,15 @@ async def change_status(
 
 @router.patch("/tasks/{task_id}/assign", response_model=TaskResponse)
 async def assign_task(
+    request: Request,
     task_id: int,
     data: TaskAssignUpdate,
     current_user: CurrentUser,
     db: DbSession,
 ) -> TaskResponse:
-    task = await TaskService(db).assign(task_id, data, current_user)
+    # Extract or generate request_id for tracing
+    request_id = request.headers.get("X-Request-ID") or "unknown"
+    task = await TaskService(db).assign(task_id, data, current_user, request_id=request_id)
     return task
 
 

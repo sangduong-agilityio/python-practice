@@ -10,6 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.constants import UpdatableFields
+from app.core.validation import validate_updatable_field
 from app.models.tag import Tag
 from app.models.task import Task, TaskPriority, TaskStatus
 
@@ -21,7 +23,7 @@ def _with_tags(stmt):
 
 class TaskRepository:
     """Raw database operations for tasks."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -46,7 +48,8 @@ class TaskRepository:
         if priority is not None:
             stmt = stmt.where(Task.priority == priority)
 
-        stmt = _with_tags(stmt).order_by(Task.created_at.desc()).offset(skip).limit(limit)
+        stmt = _with_tags(stmt).order_by(
+            Task.created_at.desc()).offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
@@ -59,8 +62,23 @@ class TaskRepository:
         return result.scalar_one()
 
     async def update(self, task: Task, data: dict) -> Task:
-        """Apply a partial field update to an existing ``Task`` and commit."""
+        """Apply a partial field update to an existing ``Task`` and commit.
+
+        Only whitelisted fields (title, description, priority, status, due_date, assignee_id) can be updated.
+        System fields (id, project_id, created_at) cannot be changed.
+
+        Args:
+            task: The task instance to update.
+            data: Dictionary of fields to update.
+
+        Returns:
+            The updated task instance.
+
+        Raises:
+            InvalidFieldException: If attempting to update a non-whitelisted field.
+        """
         for field, value in data.items():
+            validate_updatable_field(field, UpdatableFields.TASK, "task")
             setattr(task, field, value)
         await self.db.commit()
         await self.db.refresh(task)

@@ -9,12 +9,14 @@ in the service layer.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import UpdatableFields
+from app.core.validation import validate_updatable_field
 from app.models.tag import Tag
 
 
 class TagRepository:
     """Raw database operations for tags."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
 

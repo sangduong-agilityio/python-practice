@@ -12,8 +12,10 @@ from app.core.cache import cache_delete, cache_get, cache_set
 from app.core.dependencies import CurrentUser, DbSession
 from app.schemas.tag import TagCreate, TagResponse
 from app.services.tag_service import TagService
+import structlog
 
 router = APIRouter(prefix="/tags", tags=["tags"])
+log = structlog.get_logger(__name__)
 
 _TAGS_CACHE_KEY = "tags:all"
 
@@ -73,8 +75,10 @@ async def list_tags(
     """
     cached = await cache_get(_TAGS_CACHE_KEY)
     if cached is not None:
+        log.info("cache_hit", key=_TAGS_CACHE_KEY)
         return cached
 
+    log.info("cache_miss", key=_TAGS_CACHE_KEY)
     service = get_tag_service(db)
     tags = await service.list_all()
     serialised = [TagResponse.model_validate(t).model_dump(mode="json") for t in tags]

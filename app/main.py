@@ -10,6 +10,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import structlog
+from sqlalchemy import text
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -20,6 +21,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.exceptions import (
     AppException,
+    InvalidFieldException,
     PermissionDeniedException,
     ResourceAlreadyExistsException,
     ResourceNotFoundException,
@@ -29,6 +31,8 @@ from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.logger import setup_logging
 from app.core.rate_limit import limiter
+from app.core.cache import get_redis_client
+from app.db.session import engine
 from app.middleware.logging import LoggingMiddleware
 
 # Initialize structured logging globally
@@ -50,7 +54,7 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
     )
-    
+
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -77,6 +81,10 @@ def create_app() -> FastAPI:
     async def conflict_handler(_: Request, exc: ResourceAlreadyExistsException) -> JSONResponse:
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message})
 
+    @app.exception_handler(InvalidFieldException)
+    async def invalid_field_handler(_: Request, exc: InvalidFieldException) -> JSONResponse:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": exc.message})
+
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse(
@@ -97,7 +105,36 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["health"])
     async def health() -> dict:
-        return {"status": "ok"}
+        # Check DB
+        db_status = "ok"
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        except Exception as e:
+            log.error("health_db_failed", error=str(e))
+            db_status = "failed"
+
+        # Check Redis
+        redis_status = "ok"
+        try:
+            client = get_redis_client()
+            await client.ping()
+        except Exception as e:
+            log.error("health_redis_failed", error=str(e))
+            redis_status = "failed"
+
+        status_code = status.HTTP_200_OK if db_status == "ok" and redis_status == "ok" else status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "status": "ok" if status_code == status.HTTP_200_OK else "degraded",
+                "components": {
+                    "database": db_status,
+                    "redis": redis_status,
+                }
+            }
+        )
 
     return app
 

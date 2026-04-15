@@ -9,12 +9,14 @@ whether that is an error or just an empty result.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import UpdatableFields
+from app.core.validation import validate_updatable_field
 from app.models.user import User
 
 
 class UserRepository:
     """Raw database operations for users."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -43,8 +45,13 @@ class UserRepository:
         return user
 
     async def update(self, user: User, data: dict) -> User:
-        """Apply a partial update to a ``User`` and flush the changes."""
+        """Apply a partial update to a ``User`` and flush the changes.
+
+        Only whitelisted fields (username, email, hashed_password, is_active) can be updated.
+        System fields (id, created_at) cannot be changed.
+        """
         for field, value in data.items():
+            validate_updatable_field(field, UpdatableFields.USER, "user")
             setattr(user, field, value)
         await self.db.commit()
         await self.db.refresh(user)

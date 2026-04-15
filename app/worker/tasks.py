@@ -9,13 +9,15 @@ to keep the worker dependency footprint minimal.
 
 import logging
 import smtplib
+import structlog
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from app.core.config import settings
 from app.worker.celery_app import celery_app
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger(__name__)
+stdlib_log = logging.getLogger(__name__)
 
 
 def _smtp_send(to: str, subject: str, body_html: str) -> None:
@@ -62,7 +64,7 @@ def _smtp_send(to: str, subject: str, body_html: str) -> None:
     max_retries=3,
     default_retry_delay=60,
 )
-def send_welcome_email(self, user_email: str, username: str) -> None:
+def send_welcome_email(self, user_email: str, username: str, request_id: str = "unknown") -> None:
     """Send a welcome email to a newly registered user.
 
     Triggered asynchronously after a successful POST /auth/register. Uses
@@ -72,8 +74,17 @@ def send_welcome_email(self, user_email: str, username: str) -> None:
     Args:
         user_email: The new user's email address.
         username: The new user's display name.
+        request_id: Request ID for tracing (from HTTP request context).
     """
     try:
+        log.info(
+            "background_task_started",
+            task_name="send_welcome_email",
+            task_id=self.request.id,
+            request_id=request_id,
+            email=user_email,
+        )
+
         _smtp_send(
             to=user_email,
             subject=f"Welcome, {username}",
@@ -83,7 +94,25 @@ def send_welcome_email(self, user_email: str, username: str) -> None:
                 "Start by creating your first project.</p>"
             ),
         )
+
+        log.info(
+            "background_task_completed",
+            task_name="send_welcome_email",
+            task_id=self.request.id,
+            request_id=request_id,
+            email=user_email,
+            status="success",
+        )
     except Exception as exc:
+        log.error(
+            "background_task_failed",
+            task_name="send_welcome_email",
+            task_id=self.request.id,
+            request_id=request_id,
+            email=user_email,
+            error=str(exc),
+            retry_count=self.request.retries,
+        )
         raise self.retry(exc=exc)
 
 
@@ -98,6 +127,7 @@ def send_task_assigned_email(
     assignee_email: str,
     task_title: str,
     assigner_username: str,
+    request_id: str = "unknown",
 ) -> None:
     """Notify a user by email that a task has been assigned to them.
 
@@ -107,8 +137,18 @@ def send_task_assigned_email(
         assignee_email: Email address of the user being assigned the task.
         task_title: Title of the assigned task.
         assigner_username: Username of the person who performed the assignment.
+        request_id: Request ID for tracing (from HTTP request context).
     """
     try:
+        log.info(
+            "background_task_started",
+            task_name="send_task_assigned_email",
+            task_id=self.request.id,
+            request_id=request_id,
+            task_title=task_title,
+            assignee_email=assignee_email,
+        )
+
         _smtp_send(
             to=assignee_email,
             subject=f"Task assigned to you: {task_title}",
@@ -118,5 +158,25 @@ def send_task_assigned_email(
                 f"<strong>{task_title}</strong> to you.</p>"
             ),
         )
+
+        log.info(
+            "background_task_completed",
+            task_name="send_task_assigned_email",
+            task_id=self.request.id,
+            request_id=request_id,
+            task_title=task_title,
+            assignee_email=assignee_email,
+            status="success",
+        )
     except Exception as exc:
+        log.error(
+            "background_task_failed",
+            task_name="send_task_assigned_email",
+            task_id=self.request.id,
+            request_id=request_id,
+            task_title=task_title,
+            assignee_email=assignee_email,
+            error=str(exc),
+            retry_count=self.request.retries,
+        )
         raise self.retry(exc=exc)

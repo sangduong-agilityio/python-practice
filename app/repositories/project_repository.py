@@ -8,12 +8,14 @@ approach would be better, but offset is simpler and fine for most apps.
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import UpdatableFields
+from app.core.validation import validate_updatable_field
 from app.models.project import Project
 
 
 class ProjectRepository:
     """Raw database operations for projects."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -41,14 +43,20 @@ class ProjectRepository:
         return project
 
     async def update(self, project: Project, data: dict) -> Project:
-        """Apply a partial field update to an existing ``Project`` and commit."""
-        for field, value in data.items():
-            setattr(project, field, value)
-        await self.db.commit()
-        await self.db.refresh(project)
-        return project
+        """Apply a partial field update to an existing ``Project`` and commit.
 
-    async def delete(self, project: Project) -> None:
-        """Delete a ``Project`` row and commit the transaction."""
-        await self.db.delete(project)
-        await self.db.commit()
+        Only whitelisted fields (name, description) can be updated.
+        System fields (id, owner_id, created_at) cannot be changed.
+
+        Args:
+            project: The project instance to update.
+            data: Dictionary of fields to update.
+
+        Returns:
+            The updated project instance.
+
+        Raises:
+            InvalidFieldException: If attempting to update a non-whitelisted field.
+        """
+        for field, value in data.items():
+            validate_updatable_field(field, UpdatableFields.PROJECT, "project")

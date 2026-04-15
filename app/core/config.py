@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
+    DB_ECHO: bool = False
 
     # Auth
     SECRET_KEY: str
@@ -24,10 +25,10 @@ class Settings(BaseSettings):
     # CORS -- stored as a JSON array in the env file
     CORS_ORIGINS: list[AnyHttpUrl] = []
 
-    # Redis -- used for Celery broker/backend and response caching
+    # Redis -- used for response caching
     REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+    CELERY_BROKER_URL: str
+    CELERY_RESULT_BACKEND: str
 
     # Cache TTL in seconds for GET /projects and GET /tags
     CACHE_TTL_SECONDS: int = 60
