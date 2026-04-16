@@ -7,7 +7,10 @@ async def listen(token: str):
     uri = f"ws://localhost:8000/api/v1/notifications/ws?token={token}"
     print(f"Connecting to {uri}...")
     try:
-        async with websockets.connect(uri) as websocket:
+        async with websockets.connect(
+            uri,
+            extra_headers={"Authorization": f"Bearer {token}"},
+        ) as websocket:
             print("Connected! Waiting for notifications...")
             while True:
                 message = await websocket.recv()

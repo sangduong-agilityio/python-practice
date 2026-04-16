@@ -35,9 +35,8 @@ async def register(request: Request, data: UserCreate, db: DbSession) -> UserRes
     Raises:
         ResourceAlreadyExistsException (409): Email or username already registered.
     """
-    # Extract or generate request_id for tracing
-    request_id = request.headers.get(
-        "X-Request-ID") or request.scope.get("state", {}).get("request_id", "unknown")
+    # Prefer the value set by LoggingMiddleware; fall back to header if middleware is disabled.
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or "unknown"
     user = await UserService(db).register(data, request_id=request_id)
     return user
 

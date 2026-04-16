@@ -7,12 +7,24 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
+async def websocket_endpoint(websocket: WebSocket, token: str | None = Query(default=None)):
     """WebSocket endpoint for receiving real-time notifications.
     
     The client must provide a valid JWT access token as a query parameter
     `?token=...` to authenticate the connection.
+
+    For non-browser clients we also accept an Authorization header:
+    `Authorization: Bearer <token>`.
     """
+    if token is None:
+        auth = websocket.headers.get("authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth.split(" ", 1)[1].strip()
+
+    if not token:
+        await websocket.close(code=1008)
+        return
+
     user_id_str = decode_access_token(token)
     if not user_id_str:
         # Invalid or expired token

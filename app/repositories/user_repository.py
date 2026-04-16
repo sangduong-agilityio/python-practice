@@ -56,3 +56,10 @@ class UserRepository:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def list_active_users(self) -> list[User]:
+        """Fetch all active users, ordered by username."""
+        result = await self.db.execute(
+            select(User).where(User.is_active == True).order_by(User.username)
+        )
+        return result.scalars().all()

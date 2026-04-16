@@ -35,9 +35,6 @@ from app.core.cache import get_redis_client
 from app.db.session import engine
 from app.middleware.logging import LoggingMiddleware
 
-# Initialize structured logging globally
-setup_logging()
-
 log = structlog.get_logger(__name__)
 
 
@@ -49,6 +46,9 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    # Initialize structured logging before the app starts handling requests.
+    # (Idempotent; safe to call multiple times in tests.)
+    setup_logging()
     app = FastAPI(
         title="Task Management API",
         version="1.0.0",

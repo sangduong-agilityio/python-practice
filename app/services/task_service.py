@@ -41,8 +41,8 @@ class TaskService:
             raise ResourceNotFoundException("Task")
         return task
 
-    async def _assert_project_access(self, task: Task, user: User) -> None:
-        """Verify that a user has access to a given task via its parent project."""
+    async def assert_project_access(self, task: Task, user: User) -> None:
+        """Assert that ``user`` can access ``task`` via its parent project."""
         project = await self.project_repo.get_by_id(task.project_id)
         if project is None:
             raise ResourceNotFoundException("Project")
@@ -99,7 +99,7 @@ class TaskService:
     async def update(self, task_id: int, data: TaskUpdate, current_user: User) -> Task:
         """Update general fields of a task."""
         task = await self.get_or_404(task_id)
-        await self._assert_project_access(task, current_user)
+        await self.assert_project_access(task, current_user)
 
         updates = data.model_dump(exclude_unset=True)
         if not updates:
@@ -114,13 +114,13 @@ class TaskService:
     async def change_status(self, task_id: int, data: TaskStatusUpdate, current_user: User) -> Task:
         """Change only the status field of a task."""
         task = await self.get_or_404(task_id)
-        await self._assert_project_access(task, current_user)
+        await self.assert_project_access(task, current_user)
         return await self.repo.update(task, {"status": data.status})
 
     async def assign(self, task_id: int, data: TaskAssignUpdate, current_user: User, request_id: str = "unknown") -> Task:
         """Assign or unassign a user to a task."""
         task = await self.get_or_404(task_id)
-        await self._assert_project_access(task, current_user)
+        await self.assert_project_access(task, current_user)
 
         if data.assignee_id is not None:
             assignee = await self.user_repo.get_by_id(data.assignee_id)
@@ -161,13 +161,13 @@ class TaskService:
     async def delete(self, task_id: int, current_user: User) -> None:
         """Delete a task permanently."""
         task = await self.get_or_404(task_id)
-        await self._assert_project_access(task, current_user)
+        await self.assert_project_access(task, current_user)
         await self.repo.delete(task)
 
     async def attach_tag(self, task_id: int, tag_id: int, current_user: User) -> Task:
         """Link a global tag to a specific task."""
         task = await self.get_or_404(task_id)
-        await self._assert_project_access(task, current_user)
+        await self.assert_project_access(task, current_user)
 
         tag = await self.tag_repo.get_by_id(tag_id)
         if tag is None:
@@ -178,7 +178,7 @@ class TaskService:
     async def detach_tag(self, task_id: int, tag_id: int, current_user: User) -> Task:
         """Unlink a tag from a task."""
         task = await self.get_or_404(task_id)
-        await self._assert_project_access(task, current_user)
+        await self.assert_project_access(task, current_user)
 
         tag = await self.tag_repo.get_by_id(tag_id)
         if tag is None:

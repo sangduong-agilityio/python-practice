@@ -8,7 +8,8 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml .
-RUN uv pip install --system --no-cache -e ".[dev]"
+# Install runtime deps only (exclude dev tools like pytest/ruff from the image)
+RUN uv pip install --system --no-cache -e "."
 
 # Stage 2: lean runtime image -- no build tools, smaller attack surface.
 FROM python:3.13-slim AS runtime

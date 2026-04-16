@@ -19,19 +19,6 @@ log = structlog.get_logger(__name__)
 
 _TAGS_CACHE_KEY = "tags:all"
 
-
-def get_tag_service(db: DbSession) -> TagService:
-    """Construct a TagService with the current request's database session.
-
-    Args:
-        db: Injected async database session.
-
-    Returns:
-        A TagService instance.
-    """
-    return TagService(db)
-
-
 @router.post("", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
 async def create_tag(
     data: TagCreate,
@@ -50,7 +37,7 @@ async def create_tag(
     Returns:
         The created tag.
     """
-    service = get_tag_service(db)
+    service = TagService(db)
     tag = await service.create(data)
     await cache_delete(_TAGS_CACHE_KEY)
     return tag
@@ -75,12 +62,35 @@ async def list_tags(
     """
     cached = await cache_get(_TAGS_CACHE_KEY)
     if cached is not None:
-        log.info("cache_hit", key=_TAGS_CACHE_KEY)
+        log.info("cache.hit", key=_TAGS_CACHE_KEY)
         return cached
 
-    log.info("cache_miss", key=_TAGS_CACHE_KEY)
-    service = get_tag_service(db)
+    log.info("cache.miss", key=_TAGS_CACHE_KEY)
+    service = TagService(db)
     tags = await service.list_all()
     serialised = [TagResponse.model_validate(t).model_dump(mode="json") for t in tags]
     await cache_set(_TAGS_CACHE_KEY, serialised)
     return tags
+
+
+@router.get("/{tag_id}", response_model=TagResponse)
+async def get_tag(
+    tag_id: int,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> TagResponse:
+    """Retrieve a specific tag by its ID."""
+    service = TagService(db)
+    return await service.get_or_404(tag_id)
+
+
+@router.delete("/{tag_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_tag(
+    tag_id: int,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> None:
+    """Delete a global tag. Invalidates the tag cache."""
+    service = TagService(db)
+    await service.delete(tag_id)
+    await cache_delete(_TAGS_CACHE_KEY)

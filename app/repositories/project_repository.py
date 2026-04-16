@@ -60,3 +60,13 @@ class ProjectRepository:
         """
         for field, value in data.items():
             validate_updatable_field(field, UpdatableFields.PROJECT, "project")
+            setattr(project, field, value)
+
+        await self.db.commit()
+        await self.db.refresh(project)
+        return project
+
+    async def delete(self, project: Project) -> None:
+        """Permanently remove a ``Project`` from the database."""
+        await self.db.delete(project)
+        await self.db.commit()

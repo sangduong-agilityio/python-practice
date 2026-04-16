@@ -23,6 +23,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         clear_contextvars()
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         bind_contextvars(request_id=request_id)
+        request.state.request_id = request_id
         
         start = time.perf_counter()
         
@@ -37,7 +38,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 duration_ms=round(duration_ms, 2),
                 error=str(e),
             )
-            raise e
+            raise
             
         duration_ms = (time.perf_counter() - start) * 1000
         

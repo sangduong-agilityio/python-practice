@@ -2,19 +2,25 @@ import logging
 import sys
 
 import structlog
+from app.core.config import settings
 
 def setup_logging() -> None:
     """
     Configure structlog to output JSON in production environments, 
     while preserving readable console output during development.
     """
+    renderer = (
+        structlog.processors.JSONRenderer()
+        if settings.LOG_JSON
+        else structlog.dev.ConsoleRenderer()
+    )
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
             structlog.stdlib.add_logger_name,
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.JSONRenderer() # Core of structured logging: Outputs as JSON
+            renderer,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
@@ -25,5 +31,5 @@ def setup_logging() -> None:
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=logging.INFO,
+        level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
     )
