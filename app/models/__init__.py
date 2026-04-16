@@ -4,6 +4,7 @@ and still see all tables when generating migrations.
 """
 
 from app.models.base import Base, TimestampMixin
+from app.models.chat_message import ChatMessage
 from app.models.project import Project
 from app.models.refresh_token import RefreshToken
 from app.models.tag import Tag
@@ -21,4 +22,5 @@ __all__ = [
     "task_tags",
     "Tag",
     "RefreshToken",
+    "ChatMessage",
 ]

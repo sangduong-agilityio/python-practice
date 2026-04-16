@@ -69,7 +69,7 @@ class UpdatableFields:
     modified by users, preventing security vulnerabilities like privilege escalation.
     """
 
-    PROJECT = {"name", "description"}
+    PROJECT = {"title", "description"}
     TASK = {"title", "description", "priority",
             "status", "due_date", "assignee_id"}
     USER = {"username", "email", "hashed_password", "is_active"}

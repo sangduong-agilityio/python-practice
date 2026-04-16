@@ -59,10 +59,10 @@ async def list_projects(
     cache_key = f"{_CACHE_PREFIX}:{current_user.id}:skip={skip}:limit={limit}"
     cached = await cache_get(cache_key)
     if cached is not None:
-        log.info("cache_hit", key=cache_key)
+        log.info("cache.hit", key=cache_key)
         return cached
 
-    log.info("cache_miss", key=cache_key)
+    log.info("cache.miss", key=cache_key)
     projects = await ProjectService(db).list_for_user(current_user, skip=skip, limit=limit)
     serialised = [ProjectResponse.model_validate(
         p).model_dump(mode="json") for p in projects]

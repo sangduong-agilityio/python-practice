@@ -39,7 +39,7 @@ class TaskResponse(TaskBase):
     status: TaskStatus
     project_id: int
     assignee_id: int | None
-    tags: list[TagResponse] = []
+    tags: list[TagResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

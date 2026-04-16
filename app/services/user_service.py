@@ -190,6 +190,20 @@ class UserService:
             raise InvalidFieldException(
                 str(e).replace("Cannot update field: ", ""))
 
+    async def list_users_for_chat(self, exclude_user_id: int | None = None) -> list[User]:
+        """List all active users for the chat feature.
+
+        Args:
+            exclude_user_id: If provided, exclude the user with this ID from results.
+
+        Returns:
+            List of active User objects, sorted by username.
+        """
+        users = await self.repo.list_active_users()
+        if exclude_user_id is not None:
+            users = [u for u in users if u.id != exclude_user_id]
+        return users
+
     async def _issue_token_pair(
         self,
         user: User,

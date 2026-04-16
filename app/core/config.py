@@ -27,14 +27,15 @@ class Settings(BaseSettings):
 
     # Redis -- used for response caching
     REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str
-    CELERY_RESULT_BACKEND: str
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # Cache TTL in seconds for GET /projects and GET /tags
     CACHE_TTL_SECONDS: int = 60
 
     # Logging
     LOG_LEVEL: str = "INFO"
+    LOG_JSON: bool = True
 
     # Email -- optional, sending is skipped when SMTP_USER is blank
     SMTP_HOST: str = "smtp.gmail.com"

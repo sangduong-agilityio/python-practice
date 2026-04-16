@@ -1,4 +1,7 @@
 from fastapi import WebSocket
+import structlog
+
+log = structlog.get_logger(__name__)
 
 class ConnectionManager:
     """Manages WebSocket connections for real-time notifications."""
@@ -21,9 +24,20 @@ class ConnectionManager:
 
     async def send_personal_message(self, message: dict, user_id: int):
         """Send a JSON payload to all active connections for a specific user."""
-        if user_id in self.active_connections:
-            for connection in self.active_connections[user_id]:
+        if user_id not in self.active_connections:
+            return
+
+        stale: list[WebSocket] = []
+        for connection in list(self.active_connections[user_id]):
+            try:
                 await connection.send_json(message)
+            except Exception as exc:
+                # Client disconnected unexpectedly or network error: mark stale.
+                stale.append(connection)
+                log.info("ws_send_failed", user_id=user_id, error=str(exc))
+
+        for connection in stale:
+            self.disconnect(connection, user_id)
 
 # Global instance to be used across the app
 manager = ConnectionManager()

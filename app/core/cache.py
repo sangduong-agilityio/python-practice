@@ -8,6 +8,7 @@ make bulk invalidation straightforward.
 """
 
 import json
+import hashlib
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -94,13 +95,19 @@ async def cache_delete_pattern(pattern: str) -> None:
         pattern: A glob pattern such as 'projects:user:<uuid>:*'.
     """
     client = get_redis_client()
-    keys = await client.keys(pattern)
+    keys: list[str] = []
+    # Avoid Redis KEYS (O(N) on the whole keyspace). SCAN is incremental and safer.
+    async for key in client.scan_iter(match=pattern, count=500):
+        keys.append(key)
+        if len(keys) >= 500:
+            await client.delete(*keys)
+            keys.clear()
+
     if keys:
         await client.delete(*keys)
         log.info("cache_invalidated", pattern=pattern, keys_deleted=len(keys))
     else:
-        log.debug("cache_invalidation_noop",
-                  pattern=pattern, reason="no_matching_keys")
+        log.debug("cache_invalidation_noop", pattern=pattern, reason="no_matching_keys")
 
 
 async def blacklist_token(token: str, ttl_seconds: int) -> None:
@@ -115,7 +122,9 @@ async def blacklist_token(token: str, ttl_seconds: int) -> None:
                      Pass 0 to use a minimum of 1 second (avoids a SETEX error).
     """
     client = get_redis_client()
-    key = f"{_BLACKLIST_PREFIX}{token}"
+    # Never store raw JWTs in Redis keys (size + accidental leakage in tooling).
+    token_digest = hashlib.sha256(token.encode()).hexdigest()
+    key = f"{_BLACKLIST_PREFIX}{token_digest}"
     ttl = max(ttl_seconds, 1)
     await client.setex(key, ttl, "1")
 
@@ -130,5 +139,6 @@ async def is_token_blacklisted(token: str) -> bool:
         True if the token is blacklisted, False otherwise.
     """
     client = get_redis_client()
-    key = f"{_BLACKLIST_PREFIX}{token}"
+    token_digest = hashlib.sha256(token.encode()).hexdigest()
+    key = f"{_BLACKLIST_PREFIX}{token_digest}"
     return await client.exists(key) == 1

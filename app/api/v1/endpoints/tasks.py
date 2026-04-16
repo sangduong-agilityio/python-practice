@@ -51,7 +51,7 @@ async def list_tasks(
 async def get_task(task_id: int, current_user: CurrentUser, db: DbSession) -> TaskResponse:
     service = TaskService(db)
     task = await service.get_or_404(task_id)
-    await service._assert_project_access(task, current_user)
+    await service.assert_project_access(task, current_user)
     return task
 
 
@@ -84,8 +84,8 @@ async def assign_task(
     current_user: CurrentUser,
     db: DbSession,
 ) -> TaskResponse:
-    # Extract or generate request_id for tracing
-    request_id = request.headers.get("X-Request-ID") or "unknown"
+    # Prefer the value set by LoggingMiddleware; fall back to header if middleware is disabled.
+    request_id = getattr(request.state, "request_id", None) or request.headers.get("X-Request-ID") or "unknown"
     task = await TaskService(db).assign(task_id, data, current_user, request_id=request_id)
     return task
 
