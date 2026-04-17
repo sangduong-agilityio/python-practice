@@ -1,5 +1,6 @@
 """
 Task endpoints.
+
 """
 
 from fastapi import APIRouter, Query, Request, status

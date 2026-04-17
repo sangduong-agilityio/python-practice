@@ -19,9 +19,14 @@ Test data helpers:
 - auth_headers(): Get Authorization header with Bearer token
 """
 
+from app.models.base import Base
+from app.main import app
+from app.core.rate_limit import limiter
+from app.core.dependencies import get_db
 import asyncio
 import os
 from types import SimpleNamespace
+from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
@@ -29,20 +34,9 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from unittest.mock import AsyncMock, patch
 
-# ---------------------------------------------------------------------------
-# Ensure required settings exist before importing the application.
-#
-# app.core.config instantiates Settings() at import time and requires certain
-# env vars (fail-fast by design). Tests run without a local .env, so we set
-# safe defaults here.
-# ---------------------------------------------------------------------------
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
-from app.core.dependencies import get_db
-from app.core.rate_limit import limiter
-from app.main import app
-from app.models.base import Base
 
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -73,7 +67,7 @@ def mock_redis():
 
     # AsyncMock would turn this into a coroutine; we need an async-iterable.
     mock_client.scan_iter = _scan_iter  # type: ignore[assignment]
-    
+
     with (
         patch("app.core.cache.get_redis_client", return_value=mock_client),
         patch("app.main.get_redis_client", return_value=mock_client),
@@ -111,7 +105,7 @@ async def engine():
 
 
 @pytest_asyncio.fixture
-async def db_session(engine) -> AsyncSession:
+async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
     TestSession = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with TestSession() as session:
         yield session
@@ -119,7 +113,7 @@ async def db_session(engine) -> AsyncSession:
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     # Override the real DB dependency with the test session so route
     # handlers operate on the same in-memory database as the test.
     async def override_get_db():

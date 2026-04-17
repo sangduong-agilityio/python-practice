@@ -11,13 +11,7 @@ from tests.conftest import create_user
 
 @pytest.mark.asyncio
 async def test_chat_ws_message_delivery(client, db_session):
-    """
-    End-to-end:
-    - create 2 users
-    - connect websocket as recipient
-    - connect websocket as sender and send message
-    - recipient receives `chat.message` event
-    """
+    """Check standard websocket delivery from sender to recipient."""
     uniq = uuid.uuid4().hex[:8]
     sender_payload = {
         "email": f"alice-{uniq}@example.com",

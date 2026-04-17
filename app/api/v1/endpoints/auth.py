@@ -42,7 +42,7 @@ async def register(request: Request, data: UserCreate, db: DbSession) -> UserRes
 
 
 @router.post("/login", response_model=Token)
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 async def login(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],

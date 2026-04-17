@@ -36,16 +36,6 @@
 
 Task Management API is a **FastAPI**-based REST API built to production engineering standards. It provides full user authentication, project and task management, tagging, background email notifications, Redis caching, and structured JSON logging — all containerised with Docker Compose.
 
-This project was developed as a practice submission for the **FastAPI Training Plan** (Advanced Features phase), covering:
-
-| Category | Implementation |
-|---|---|
-| Background Tasks | Celery + Redis — async email on register & task assignment |
-| Middleware / CORS | Request logging middleware + environment-driven CORS |
-| Caching | Redis cache for list endpoints with TTL and auto-invalidation |
-| Logging | structlog JSON structured logging with per-request context |
-| Containerisation | Multi-stage Dockerfile + Docker Compose (4 services) |
-| Database | PostgreSQL 16 with async SQLAlchemy 2.x + Alembic migrations |
 
 ---
 
