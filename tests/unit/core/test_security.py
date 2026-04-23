@@ -5,10 +5,8 @@ Tests cover pure password hashing and JWT token utilities without
 any database or HTTP layer involvement — each test runs in microseconds.
 """
 
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-import pytest
 from jose import jwt
 
 from app.core.config import settings
@@ -21,7 +19,6 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
-
 
 # ---------------------------------------------------------------------------
 # Password hashing
@@ -88,7 +85,7 @@ def test_decode_access_token_invalid_returns_none():
 def test_decode_access_token_wrong_type_returns_none():
     """Token with typ != 'access' should be rejected."""
     # Manually craft a token without the 'access' typ claim
-    expire = datetime.now(timezone.utc) + timedelta(minutes=30)
+    expire = datetime.now(UTC) + timedelta(minutes=30)
     bad_payload = {"sub": "1", "exp": expire, "typ": "refresh"}
     bad_token = jwt.encode(bad_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     assert decode_access_token(bad_token) is None
@@ -96,7 +93,7 @@ def test_decode_access_token_wrong_type_returns_none():
 
 def test_decode_access_token_expired_returns_none():
     """Expired tokens must not decode successfully."""
-    expire = datetime.now(timezone.utc) - timedelta(seconds=1)
+    expire = datetime.now(UTC) - timedelta(seconds=1)
     payload = {"sub": "1", "exp": expire, "typ": "access"}
     expired_token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     assert decode_access_token(expired_token) is None
@@ -117,7 +114,7 @@ def test_get_access_token_remaining_seconds_positive():
 
 def test_get_access_token_remaining_seconds_expired():
     """Expired token must return 0 (not negative)."""
-    expire = datetime.now(timezone.utc) - timedelta(seconds=10)
+    expire = datetime.now(UTC) - timedelta(seconds=10)
     payload = {"sub": "1", "exp": expire, "typ": "access"}
     expired_token = jwt.encode(
         payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM

@@ -1,7 +1,8 @@
-import pytest
-from fastapi.testclient import TestClient
 import threading
 import uuid
+
+import pytest
+from fastapi.testclient import TestClient
 
 from app.core.dependencies import get_db
 from app.core.rate_limit import limiter

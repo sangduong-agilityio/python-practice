@@ -6,13 +6,13 @@ read-heavy resource that changes infrequently. The cache is invalidated
 whenever a new tag is created.
 """
 
+import structlog
 from fastapi import APIRouter, status
 
 from app.core.cache import cache_delete, cache_get, cache_set
 from app.core.dependencies import CurrentUser, DbSession
 from app.schemas.tag import TagCreate, TagResponse
 from app.services.tag_service import TagService
-import structlog
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 log = structlog.get_logger(__name__)

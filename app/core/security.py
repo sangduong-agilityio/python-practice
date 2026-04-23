@@ -8,7 +8,7 @@ reuse outside the web layer if needed.
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -58,7 +58,7 @@ def create_access_token(subject: str) -> str:
     Returns:
         A compact, URL-safe JWT string signed with HMAC-SHA256.
     """
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     payload = {"sub": subject, "exp": expire, "typ": "access"}
@@ -106,7 +106,7 @@ def get_access_token_remaining_seconds(token: str) -> int:
         exp = payload.get("exp")
         if exp is None:
             return 0
-        remaining = int(exp) - int(datetime.now(timezone.utc).timestamp())
+        remaining = int(exp) - int(datetime.now(UTC).timestamp())
         return max(remaining, 0)
     except JWTError:
         return 0

@@ -4,14 +4,19 @@ User business logic.
 Services raise custom domain exceptions (ResourceNotFoundException, PermissionDeniedException, etc).
 Repositories return None on miss; services decide what that means in context.
 """
+from datetime import UTC, datetime, timedelta
+
 import structlog
-from datetime import datetime, timedelta, timezone
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cache import blacklist_token, is_token_blacklisted
+from app.core.cache import blacklist_token
 from app.core.config import settings
-from app.core.exceptions import InvalidFieldException, PermissionDeniedException, ResourceNotFoundException, ResourceAlreadyExistsException
+from app.core.exceptions import (
+    InvalidFieldException,
+    PermissionDeniedException,
+    ResourceAlreadyExistsException,
+)
 from app.core.security import (
     create_access_token,
     generate_refresh_token,
@@ -118,9 +123,9 @@ class UserService:
         # Check expiry at the application layer.
         expires_at = db_token.expires_at
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
-        if expires_at < datetime.now(timezone.utc):
+        if expires_at < datetime.now(UTC):
             raise PermissionDeniedException("Invalid or expired refresh token")
 
         # If ``used_at`` is already set the token was already rotated.
@@ -188,7 +193,7 @@ class UserService:
             return await self.repo.update(user, updates)
         except ValueError as e:
             raise InvalidFieldException(
-                str(e).replace("Cannot update field: ", ""))
+                str(e).replace("Cannot update field: ", "")) from e
 
     async def list_users_for_chat(self, exclude_user_id: int | None = None) -> list[User]:
         """List all active users for the chat feature.
@@ -227,7 +232,7 @@ class UserService:
         # -- Refresh token (opaque, stored as hash) --
         raw_refresh = generate_refresh_token()
         token_hash = hash_token(raw_refresh)
-        expires_at = datetime.now(timezone.utc) + timedelta(
+        expires_at = datetime.now(UTC) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
 

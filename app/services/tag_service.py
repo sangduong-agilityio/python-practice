@@ -1,8 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.exceptions import ResourceAlreadyExistsException, ResourceNotFoundException
+
+from app.core.exceptions import (
+    ResourceAlreadyExistsException,
+    ResourceNotFoundException,
+)
 from app.models.tag import Tag
 from app.repositories.tag_repository import TagRepository
 from app.schemas.tag import TagCreate
+
 
 class TagService:
     """Logic nghiệp vụ cho Tag."""
@@ -14,7 +19,7 @@ class TagService:
         """Create a new global tag."""
         if await self.repo.get_by_name(data.name):
             raise ResourceAlreadyExistsException(f"Tag '{data.name}' already exists")
-        
+
         tag = Tag(name=data.name, color=data.color)
         return await self.repo.create(tag)
 

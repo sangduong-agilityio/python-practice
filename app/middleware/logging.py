@@ -7,13 +7,12 @@ we never forget to log a new endpoint.
 """
 
 import time
-
 import uuid
+
 import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, clear_contextvars
-
 
 log = structlog.get_logger("api.access")
 
@@ -24,9 +23,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         bind_contextvars(request_id=request_id)
         request.state.request_id = request_id
-        
+
         start = time.perf_counter()
-        
+
         try:
             response = await call_next(request)
         except Exception as e:
@@ -39,9 +38,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 error=str(e),
             )
             raise
-            
+
         duration_ms = (time.perf_counter() - start) * 1000
-        
+
         log.info(
             "request_completed",
             method=request.method,

@@ -2,8 +2,8 @@
 Project endpoints -- CRUD operations for projects.
 """
 
-from fastapi import APIRouter, Query, status
 import structlog
+from fastapi import APIRouter, Query, status
 
 from app.core.cache import cache_delete_pattern, cache_get, cache_set
 from app.core.dependencies import CurrentUser, DbSession

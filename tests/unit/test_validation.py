@@ -4,8 +4,9 @@ Simple unit tests for field validation without database dependency.
 """
 
 import pytest
-from app.core.validation import validate_updatable_field
+
 from app.core.exceptions import InvalidFieldException
+from app.core.validation import validate_updatable_field
 
 
 class TestValidateUpdatableField:

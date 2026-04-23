@@ -2,11 +2,13 @@ import logging
 import sys
 
 import structlog
+
 from app.core.config import settings
+
 
 def setup_logging() -> None:
     """
-    Configure structlog to output JSON in production environments, 
+    Configure structlog to output JSON in production environments,
     while preserving readable console output during development.
     """
     renderer = (

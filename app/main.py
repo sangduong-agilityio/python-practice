@@ -6,32 +6,28 @@ so tests can import create_app and call it with different settings without
 the side effects of module-level code running at import time.
 """
 
-import logging
 from contextlib import asynccontextmanager
 
 import structlog
-from sqlalchemy import text
-
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 
+from app.api.v1.router import v1_router
+from app.core.cache import get_redis_client
+from app.core.config import settings
 from app.core.exceptions import (
-    AppException,
     InvalidFieldException,
     PermissionDeniedException,
     ResourceAlreadyExistsException,
     ResourceNotFoundException,
 )
-
-from app.api.v1.router import v1_router
-from app.core.config import settings
 from app.core.logger import setup_logging
 from app.core.rate_limit import limiter
-from app.core.cache import get_redis_client
 from app.db.session import engine
 from app.middleware.logging import LoggingMiddleware
 

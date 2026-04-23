@@ -15,14 +15,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     # Inheriting str means JSON serialization works without a custom encoder.
     TODO = "todo"
     IN_PROGRESS = "in_progress"
     DONE = "done"
 
 
-class TaskPriority(str, enum.Enum):
+class TaskPriority(enum.StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

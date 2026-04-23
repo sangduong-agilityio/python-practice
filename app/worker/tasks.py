@@ -9,9 +9,10 @@ to keep the worker dependency footprint minimal.
 
 import logging
 import smtplib
-import structlog
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import structlog
 
 from app.core.config import settings
 from app.worker.celery_app import celery_app
@@ -113,7 +114,7 @@ def send_welcome_email(self, user_email: str, username: str, request_id: str = "
             error=str(exc),
             retry_count=self.request.retries,
         )
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 @celery_app.task(
@@ -179,4 +180,4 @@ def send_task_assigned_email(
             error=str(exc),
             retry_count=self.request.retries,
         )
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc

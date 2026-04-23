@@ -7,8 +7,8 @@ Cache keys are namespaced by resource type to avoid collisions and to
 make bulk invalidation straightforward.
 """
 
-import json
 import hashlib
+import json
 from typing import Any
 
 import redis.asyncio as aioredis

@@ -4,7 +4,11 @@ Project business logic.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import InvalidFieldException, PermissionDeniedException, ResourceNotFoundException
+from app.core.exceptions import (
+    InvalidFieldException,
+    PermissionDeniedException,
+    ResourceNotFoundException,
+)
 from app.models.project import Project
 from app.models.user import User
 from app.repositories.project_repository import ProjectRepository
@@ -49,7 +53,7 @@ class ProjectService:
             return await self.repo.update(project, data.model_dump(exclude_none=True))
         except ValueError as e:
             raise InvalidFieldException(
-                str(e).replace("Cannot update field: ", ""))
+                str(e).replace("Cannot update field: ", "")) from e
 
     async def delete(self, project_id: int, current_user: User) -> None:
         """Delete a project permanently."""

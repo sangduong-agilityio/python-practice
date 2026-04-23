@@ -1,5 +1,5 @@
-from fastapi import WebSocket
 import structlog
+from fastapi import WebSocket
 
 log = structlog.get_logger(__name__)
 

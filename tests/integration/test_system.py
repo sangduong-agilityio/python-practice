@@ -7,10 +7,11 @@ Verifies:
 - WebSocket handshake and stability
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
-from unittest.mock import patch, AsyncMock
-from fastapi import status
+
 from app.main import app
 
 
@@ -33,8 +34,12 @@ async def test_health_check_endpoint(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_global_exception_handlers(client: AsyncClient) -> None:
     """Verify that custom domain exceptions are mapped correctly to HTTP status codes."""
-    from app.core.exceptions import ResourceNotFoundException, PermissionDeniedException, ResourceAlreadyExistsException
-    
+    from app.core.exceptions import (
+        PermissionDeniedException,
+        ResourceAlreadyExistsException,
+        ResourceNotFoundException,
+    )
+
     @app.get("/test-404")
     async def trigger_404():
         raise ResourceNotFoundException("Item")
@@ -69,7 +74,7 @@ async def test_unhandled_500_exception(client: AsyncClient) -> None:
     @app.get("/test-500")
     async def trigger_500():
         raise RuntimeError("BOOM")
-    
+
     # HTTTPX re-raises, but the handler logic is still covered
     with pytest.raises(RuntimeError):
         await client.get("/test-500")
@@ -81,7 +86,7 @@ async def test_websocket_connectivity(client: AsyncClient):
     from fastapi.testclient import TestClient
     with TestClient(app) as tc:
         try:
-            with tc.websocket_connect("/api/v1/notifications/ws/1") as websocket:
+            with tc.websocket_connect("/api/v1/notifications/ws/1") as _:
                 assert True
         except Exception:
             # We care about hitting the connection code in the endpoint

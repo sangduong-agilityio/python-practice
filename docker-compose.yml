@@ -12,10 +12,10 @@ services:
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
       REDIS_URL: redis://redis:6379/0
       # Keep Celery aligned with README + Settings defaults:
-      # - broker: Redis DB 1
-      # - result backend: Redis DB 2
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      # - broker: Postgres DB
+      # - result backend: Postgres DB
+      CELERY_BROKER_URL: sqla+postgresql://postgres:postgres@db:5432/taskdb
+      CELERY_RESULT_BACKEND: db+postgresql://postgres:postgres@db:5432/taskdb
       CACHE_TTL_SECONDS: 60
       LOG_LEVEL: INFO
       SMTP_USER: ${SMTP_USER:-}
@@ -37,8 +37,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/taskdb
       SECRET_KEY: change-this-in-production
       REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      CELERY_BROKER_URL: sqla+postgresql://postgres:postgres@db:5432/taskdb
+      CELERY_RESULT_BACKEND: db+postgresql://postgres:postgres@db:5432/taskdb
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     depends_on:
@@ -51,6 +51,8 @@ services:
 
   db:
     image: postgres:16-alpine
+    ports:
+      - "5434:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

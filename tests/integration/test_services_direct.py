@@ -1,10 +1,15 @@
 import pytest
+
+from app.core.exceptions import (
+    PermissionDeniedException,
+    ResourceAlreadyExistsException,
+    ResourceNotFoundException,
+)
+from app.models.task import TaskPriority, TaskStatus
+from app.schemas.task import TaskAssignUpdate, TaskCreate, TaskStatusUpdate, TaskUpdate
+from app.schemas.user import UserCreate, UserUpdate
 from app.services.task_service import TaskService
 from app.services.user_service import UserService
-from app.schemas.task import TaskCreate, TaskStatusUpdate, TaskAssignUpdate, TaskUpdate
-from app.schemas.user import UserCreate, UserUpdate
-from app.models.task import TaskStatus, TaskPriority
-from app.core.exceptions import ResourceNotFoundException, PermissionDeniedException, ResourceAlreadyExistsException, InvalidFieldException
 
 
 @pytest.mark.asyncio
@@ -20,8 +25,8 @@ async def test_task_service_direct_coverage(db_session):
     user = await user_svc.register(user_data)
 
     # tests need a project to house the tasks
-    from app.services.project_service import ProjectService
     from app.schemas.project import ProjectCreate
+    from app.services.project_service import ProjectService
     proj_svc = ProjectService(db_session)
     project = await proj_svc.create(ProjectCreate(title="Test Proj"), user)
 

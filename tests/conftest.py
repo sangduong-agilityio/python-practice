@@ -19,20 +19,21 @@ Test data helpers:
 - auth_headers(): Get Authorization header with Bearer token
 """
 
-from app.models.base import Base
-from app.main import app
-from app.core.rate_limit import limiter
-from app.core.dependencies import get_db
 import asyncio
 import os
+from collections.abc import AsyncGenerator
 from types import SimpleNamespace
-from typing import AsyncGenerator
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from unittest.mock import AsyncMock, patch
+
+from app.core.dependencies import get_db
+from app.core.rate_limit import limiter
+from app.main import app
+from app.models.base import Base
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
@@ -105,7 +106,7 @@ async def engine():
 
 
 @pytest_asyncio.fixture
-async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(engine) -> AsyncGenerator[AsyncSession]:
     TestSession = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with TestSession() as session:
         yield session
@@ -113,7 +114,7 @@ async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
     # Override the real DB dependency with the test session so route
     # handlers operate on the same in-memory database as the test.
     async def override_get_db():

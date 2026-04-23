@@ -5,14 +5,18 @@ Task business logic.
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import InvalidFieldException, PermissionDeniedException, ResourceNotFoundException
+from app.core.exceptions import (
+    InvalidFieldException,
+    PermissionDeniedException,
+    ResourceNotFoundException,
+)
+from app.core.websocket import manager
 from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.tag_repository import TagRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
-from app.core.websocket import manager
 from app.schemas.task import (
     TaskAssignUpdate,
     TaskCreate,
@@ -109,7 +113,7 @@ class TaskService:
             return await self.repo.update(task, updates)
         except ValueError as e:
             raise InvalidFieldException(
-                str(e).replace("Cannot update field: ", ""))
+                str(e).replace("Cannot update field: ", "")) from e
 
     async def change_status(self, task_id: int, data: TaskStatusUpdate, current_user: User) -> Task:
         """Change only the status field of a task."""

@@ -5,9 +5,7 @@ Verifies that sending logic respects env configurations and correctly routes to 
 """
 
 from unittest.mock import MagicMock, patch
-import pytest
 
-from app.worker.tasks import send_task_assigned_email, send_welcome_email
 
 def test_send_welcome_email_skips_when_smtp_not_configured():
     """Make sure smtp is wholly avoided if the user/password config is blank."""

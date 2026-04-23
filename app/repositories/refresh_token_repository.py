@@ -6,7 +6,7 @@ If a token is not found, return None and let the service layer decide
 what that means in context (401, etc.).
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +41,7 @@ class RefreshTokenRepository:
         A non-NULL ``used_at`` on an *incoming* request is a reuse signal:
         the token was already rotated and someone is replaying the old value.
         """
-        token.used_at = datetime.now(timezone.utc)
+        token.used_at = datetime.now(UTC)
         await self.db.commit()
 
     async def revoke(self, token: RefreshToken) -> None:

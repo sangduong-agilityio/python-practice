@@ -7,10 +7,10 @@ instantiated with appropriate messages.
 import pytest
 
 from app.core.exceptions import (
-    ResourceNotFoundException,
+    InvalidFieldException,
     PermissionDeniedException,
     ResourceAlreadyExistsException,
-    InvalidFieldException,
+    ResourceNotFoundException,
 )
 
 
@@ -136,10 +136,10 @@ class TestExceptionHierarchy:
 
     def test_exception_catching(self):
         """Test exceptions can be caught as base Exception."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             raise ResourceNotFoundException("user")
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             raise PermissionDeniedException("No permission")
 
     def test_specific_exception_not_caught_by_wrong_handler(self):
