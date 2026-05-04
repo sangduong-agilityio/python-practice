@@ -54,10 +54,9 @@ class TaskRepository:
         return list(result.scalars().all())
 
     async def create(self, task: Task) -> Task:
-        """Persist a new ``Task``, commit, and re-fetch with tags eagerly loaded."""
+        """Persist a new ``Task``, flush, and re-fetch with tags eagerly loaded."""
         self.db.add(task)
-        await self.db.commit()
-        await self.db.refresh(task)
+        await self.db.flush()
         result = await self.db.execute(_with_tags(select(Task).where(Task.id == task.id)))
         return result.scalar_one()
 
@@ -80,14 +79,14 @@ class TaskRepository:
         for field, value in data.items():
             validate_updatable_field(field, UpdatableFields.TASK, "task")
             setattr(task, field, value)
-        await self.db.commit()
-        await self.db.refresh(task)
-        return task
+        await self.db.flush()
+        result = await self.db.execute(_with_tags(select(Task).where(Task.id == task.id)))
+        return result.scalar_one()
 
     async def delete(self, task: Task) -> None:
         """Delete a ``Task`` row and commit. Child rows (task_tags) are removed by DB cascade."""
         await self.db.delete(task)
-        await self.db.commit()
+        await self.db.flush()
 
     async def add_tag(self, task_id: int, tag: Tag) -> Task:
         """Associate a ``Tag`` with a task, skipping the operation if already linked."""
@@ -95,7 +94,7 @@ class TaskRepository:
         task = result.scalar_one()
         if tag not in task.tags:
             task.tags.append(tag)
-            await self.db.commit()
+            await self.db.flush()
         return task
 
     async def remove_tag(self, task_id: int, tag: Tag) -> Task:
@@ -103,5 +102,5 @@ class TaskRepository:
         result = await self.db.execute(_with_tags(select(Task).where(Task.id == task_id)))
         task = result.scalar_one()
         task.tags = [t for t in task.tags if t.id != tag.id]
-        await self.db.commit()
+        await self.db.flush()
         return task

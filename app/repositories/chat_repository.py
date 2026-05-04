@@ -10,7 +10,7 @@ class ChatRepository:
 
     async def create(self, msg: ChatMessage) -> ChatMessage:
         self.db.add(msg)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(msg)
         return msg
 

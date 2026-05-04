@@ -40,7 +40,7 @@ class UserRepository:
         refreshed object with all server-generated fields (``id``, ``created_at``).
         """
         self.db.add(user)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(user)
         return user
 
@@ -53,7 +53,7 @@ class UserRepository:
         for field, value in data.items():
             validate_updatable_field(field, UpdatableFields.USER, "user")
             setattr(user, field, value)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(user)
         return user
 

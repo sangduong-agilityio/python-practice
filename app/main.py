@@ -21,6 +21,7 @@ from app.api.v1.router import v1_router
 from app.core.cache import get_redis_client
 from app.core.config import settings
 from app.core.exceptions import (
+    AuthenticationFailedException,
     InvalidFieldException,
     PermissionDeniedException,
     ResourceAlreadyExistsException,
@@ -72,6 +73,14 @@ def create_app() -> FastAPI:
     @app.exception_handler(PermissionDeniedException)
     async def forbidden_handler(_: Request, exc: PermissionDeniedException) -> JSONResponse:
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"detail": exc.message})
+
+    @app.exception_handler(AuthenticationFailedException)
+    async def auth_failed_handler(_: Request, exc: AuthenticationFailedException) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": exc.message},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     @app.exception_handler(ResourceAlreadyExistsException)
     async def conflict_handler(_: Request, exc: ResourceAlreadyExistsException) -> JSONResponse:

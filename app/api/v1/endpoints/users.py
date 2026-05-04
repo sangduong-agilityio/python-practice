@@ -26,7 +26,7 @@ async def get_me(current_user: CurrentUser) -> UserResponse:
     return current_user
 
 
-@router.put("/me", response_model=UserResponse)
+@router.patch("/me", response_model=UserResponse)
 async def update_me(data: UserUpdate, current_user: CurrentUser, db: DbSession) -> UserResponse:
     """Update the current user's profile.
 

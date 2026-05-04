@@ -7,6 +7,7 @@ in a dedicated worker process. This file must NOT import FastAPI internals
 to keep the worker dependency footprint minimal.
 """
 
+import html
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -90,7 +91,7 @@ def send_welcome_email(self, user_email: str, username: str, request_id: str = "
             to=user_email,
             subject=f"Welcome, {username}",
             body_html=(
-                f"<p>Hi {username},</p>"
+                f"<p>Hi {html.escape(username)},</p>"
                 "<p>Your Task Management account is ready. "
                 "Start by creating your first project.</p>"
             ),
@@ -155,8 +156,8 @@ def send_task_assigned_email(
             subject=f"Task assigned to you: {task_title}",
             body_html=(
                 f"<p>Hi,</p>"
-                f"<p><strong>{assigner_username}</strong> assigned the task "
-                f"<strong>{task_title}</strong> to you.</p>"
+                f"<p><strong>{html.escape(assigner_username)}</strong> assigned the task "
+                f"<strong>{html.escape(task_title)}</strong> to you.</p>"
             ),
         )
 

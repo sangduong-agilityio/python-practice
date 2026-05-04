@@ -39,7 +39,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
 
-TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
+TEST_DB_URL = "sqlite+aiosqlite:///file::memory:?cache=shared&uri=true"
 
 
 @pytest.fixture(scope="session")
@@ -94,6 +94,7 @@ async def engine():
     test_engine = create_async_engine(
         TEST_DB_URL,
         connect_args={"check_same_thread": False},
+        echo=False,
     )
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -107,6 +108,7 @@ async def engine():
 
 @pytest_asyncio.fixture
 async def db_session(engine) -> AsyncGenerator[AsyncSession]:
+    """Provide a transactional session rolled back after each test."""
     TestSession = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with TestSession() as session:
         yield session
@@ -117,6 +119,8 @@ async def db_session(engine) -> AsyncGenerator[AsyncSession]:
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
     # Override the real DB dependency with the test session so route
     # handlers operate on the same in-memory database as the test.
+    # IMPORTANT: do NOT flush/commit here — get_db's UoW logic does that.
+    # The session is rolled back in db_session after the test completes.
     async def override_get_db():
         yield db_session
 

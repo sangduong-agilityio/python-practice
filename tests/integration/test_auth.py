@@ -79,13 +79,13 @@ async def test_login_success(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient) -> None:
-    """Bad password drops a 403."""
+    """Bad password drops a 401."""
     await create_user(client)
     r = await client.post(
         "/api/v1/auth/login",
         data={"username": TEST_USER["email"], "password": "wrongpassword"},
     )
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 @pytest.mark.asyncio
 async def test_inactive_user_login_fails(client: AsyncClient, db_session):
@@ -98,10 +98,10 @@ async def test_inactive_user_login_fails(client: AsyncClient, db_session):
         is_active=False
     )
     db_session.add(user)
-    await db_session.commit()
+    await db_session.flush()
 
     r = await client.post("/api/v1/auth/login", data={"username": "inactive@example.com", "password": "password123"})
-    assert r.status_code == 403
+    assert r.status_code == 401
     assert "inactive" in r.json()["detail"].lower()
 
 @pytest.mark.asyncio
@@ -165,7 +165,7 @@ async def test_refresh_expired_token(client: AsyncClient, db_session):
     result = await db_session.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     db_token = result.scalar_one()
     db_token.expires_at = datetime.now(UTC) - timedelta(days=1)
-    await db_session.commit()
+    await db_session.flush()
 
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert r.status_code == 403

@@ -4,7 +4,7 @@ Auth endpoints -- register, login, refresh, and logout.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.dependencies import CurrentUser, DbSession, RawToken
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-async def register(request: Request, data: UserCreate, db: DbSession) -> UserResponse:
+async def register(request: Request, response: Response, data: UserCreate, db: DbSession) -> UserResponse:
     """Register a new user account.
 
     Creates a new user with the provided email, username, and password.
@@ -45,6 +45,7 @@ async def register(request: Request, data: UserCreate, db: DbSession) -> UserRes
 @limiter.limit("5/minute")
 async def login(
     request: Request,
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: DbSession,
 ) -> Token:
@@ -71,7 +72,7 @@ async def login(
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("20/minute")
-async def refresh(request: Request, body: RefreshRequest, db: DbSession) -> Token:
+async def refresh(request: Request, response: Response, body: RefreshRequest, db: DbSession) -> Token:
     """Exchange a valid refresh token for a new access + refresh token pair.
 
     The old refresh token is immediately invalidated (rotation).  If the same

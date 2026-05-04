@@ -21,6 +21,13 @@ class ResourceNotFoundException(AppException):
         super().__init__(f"{resource_name} not found")
 
 
+class AuthenticationFailedException(AppException):
+    """Raised when login credentials are invalid."""
+
+    def __init__(self, message: str = "Invalid credentials"):
+        super().__init__(message)
+
+
 class PermissionDeniedException(AppException):
     """Raised when a user lacks the authorization to perform an action (e.g., modifying another user's resource)."""
 

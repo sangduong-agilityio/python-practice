@@ -32,7 +32,12 @@ async def get_db():
     Inject this via ``DbSession`` rather than calling it directly.
     """
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]

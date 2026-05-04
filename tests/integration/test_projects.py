@@ -47,8 +47,8 @@ async def test_list_projects_cache_hit_prevents_db_query(client: AsyncClient) ->
     async def get_by_owner_wrapper(self, *args, **kwargs):
         return await original_get(self, *args, **kwargs)
 
-    with patch("app.api.v1.endpoints.projects.cache_get", side_effect=fake_cache_get), \
-         patch("app.api.v1.endpoints.projects.cache_set", side_effect=fake_cache_set), \
+    with patch("app.services.project_service.cache_get", side_effect=fake_cache_get), \
+         patch("app.services.project_service.cache_set", side_effect=fake_cache_set), \
          patch("app.repositories.project_repository.ProjectRepository.get_by_owner", autospec=True, side_effect=get_by_owner_wrapper) as mock_db:
 
         # first request should miss cache and fetch from db

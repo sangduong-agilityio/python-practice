@@ -19,11 +19,14 @@ log = structlog.get_logger("api.access")
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Reset contextvars for each request to avoid leaking data between requests
         clear_contextvars()
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        # Bind the request ID to the contextvars so it gets included in all log messages for this request
         bind_contextvars(request_id=request_id)
+        # Also store the request ID in the request state so it can be accessed in handlers if needed
         request.state.request_id = request_id
-
+        # Log the incoming request with method and path
         start = time.perf_counter()
 
         try:

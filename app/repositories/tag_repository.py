@@ -28,11 +28,11 @@ class TagRepository:
     async def create(self, tag: Tag) -> Tag:
         """Persist a new Tag instance."""
         self.db.add(tag)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(tag)
         return tag
 
     async def delete(self, tag: Tag) -> None:
         """Delete a tag instance."""
         await self.db.delete(tag)
-        await self.db.commit()
+        await self.db.flush()

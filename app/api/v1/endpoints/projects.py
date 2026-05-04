@@ -2,18 +2,13 @@
 Project endpoints -- CRUD operations for projects.
 """
 
-import structlog
 from fastapi import APIRouter, Query, status
-
-from app.core.cache import cache_delete_pattern, cache_get, cache_set
 from app.core.dependencies import CurrentUser, DbSession
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.services.project_service import ProjectService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
-log = structlog.get_logger(__name__)
 
-_CACHE_PREFIX = "projects:user"
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -31,9 +26,7 @@ async def create_project(data: ProjectCreate, current_user: CurrentUser, db: DbS
     Raises:
         PermissionDeniedException (403): User lacks permission to create projects.
     """
-    project = await ProjectService(db).create(data, current_user)
-    await cache_delete_pattern(f"{_CACHE_PREFIX}:{current_user.id}:*")
-    return project
+    return await ProjectService(db).create(data, current_user)
 
 
 @router.get("", response_model=list[ProjectResponse])
@@ -56,18 +49,7 @@ async def list_projects(
     Returns:
         list[ProjectResponse]: List of projects owned by the user.
     """
-    cache_key = f"{_CACHE_PREFIX}:{current_user.id}:skip={skip}:limit={limit}"
-    cached = await cache_get(cache_key)
-    if cached is not None:
-        log.info("cache.hit", key=cache_key)
-        return cached
-
-    log.info("cache.miss", key=cache_key)
-    projects = await ProjectService(db).list_for_user(current_user, skip=skip, limit=limit)
-    serialised = [ProjectResponse.model_validate(
-        p).model_dump(mode="json") for p in projects]
-    await cache_set(cache_key, serialised)
-    return projects
+    return await ProjectService(db).list_for_user(current_user, skip=skip, limit=limit)
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -115,9 +97,7 @@ async def update_project(
         PermissionDeniedException (403): User is not the project owner.
         InvalidFieldException (400): Attempted to update a non-whitelisted field.
     """
-    project = await ProjectService(db).update(project_id, data, current_user)
-    await cache_delete_pattern(f"{_CACHE_PREFIX}:{current_user.id}:*")
-    return project
+    return await ProjectService(db).update(project_id, data, current_user)
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -137,4 +117,3 @@ async def delete_project(project_id: int, current_user: CurrentUser, db: DbSessi
         PermissionDeniedException (403): User is not the project owner.
     """
     await ProjectService(db).delete(project_id, current_user)
-    await cache_delete_pattern(f"{_CACHE_PREFIX}:{current_user.id}:*")

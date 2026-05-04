@@ -6,18 +6,13 @@ read-heavy resource that changes infrequently. The cache is invalidated
 whenever a new tag is created.
 """
 
-import structlog
 from fastapi import APIRouter, status
-
-from app.core.cache import cache_delete, cache_get, cache_set
 from app.core.dependencies import CurrentUser, DbSession
 from app.schemas.tag import TagCreate, TagResponse
 from app.services.tag_service import TagService
 
 router = APIRouter(prefix="/tags", tags=["tags"])
-log = structlog.get_logger(__name__)
 
-_TAGS_CACHE_KEY = "tags:all"
 
 @router.post("", response_model=TagResponse, status_code=status.HTTP_201_CREATED)
 async def create_tag(
@@ -37,10 +32,7 @@ async def create_tag(
     Returns:
         The created tag.
     """
-    service = TagService(db)
-    tag = await service.create(data)
-    await cache_delete(_TAGS_CACHE_KEY)
-    return tag
+    return await TagService(db).create(data)
 
 
 @router.get("", response_model=list[TagResponse])
@@ -60,17 +52,7 @@ async def list_tags(
     Returns:
         A list of all tags.
     """
-    cached = await cache_get(_TAGS_CACHE_KEY)
-    if cached is not None:
-        log.info("cache.hit", key=_TAGS_CACHE_KEY)
-        return cached
-
-    log.info("cache.miss", key=_TAGS_CACHE_KEY)
-    service = TagService(db)
-    tags = await service.list_all()
-    serialised = [TagResponse.model_validate(t).model_dump(mode="json") for t in tags]
-    await cache_set(_TAGS_CACHE_KEY, serialised)
-    return tags
+    return await TagService(db).list_all()
 
 
 @router.get("/{tag_id}", response_model=TagResponse)
@@ -91,6 +73,4 @@ async def delete_tag(
     db: DbSession,
 ) -> None:
     """Delete a global tag. Invalidates the tag cache."""
-    service = TagService(db)
-    await service.delete(tag_id)
-    await cache_delete(_TAGS_CACHE_KEY)
+    await TagService(db).delete(tag_id)

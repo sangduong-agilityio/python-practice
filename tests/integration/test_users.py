@@ -25,7 +25,7 @@ async def test_own_profile_lifecycle(client: AsyncClient):
     assert r.json()["email"] == user_payload["email"]
 
     # update it
-    r = await client.put("/api/v1/users/me", json={"username": "updated_user"}, headers=headers)
+    r = await client.patch("/api/v1/users/me", json={"username": "updated_user"}, headers=headers)
     assert r.status_code == 200
     assert r.json()["username"] == "updated_user"
 
@@ -42,11 +42,11 @@ async def test_profile_conflict_prevention(client: AsyncClient):
     bob_headers = await auth_headers(client, bob_payload)
 
     # bob tries to steal alice's email
-    r = await client.put("/api/v1/users/me", json={"email": alice_payload["email"]}, headers=bob_headers)
+    r = await client.patch("/api/v1/users/me", json={"email": alice_payload["email"]}, headers=bob_headers)
     assert r.status_code == 409
 
     # bob tries to steal alice's username
-    r = await client.put("/api/v1/users/me", json={"username": alice_payload["username"]}, headers=bob_headers)
+    r = await client.patch("/api/v1/users/me", json={"username": alice_payload["username"]}, headers=bob_headers)
     assert r.status_code == 409
 
 @pytest.mark.asyncio
@@ -60,7 +60,7 @@ async def test_inactive_user_access_rejection(client: AsyncClient, db_session):
     result = await db_session.execute(select(User).where(User.email == user_payload["email"]))
     user_obj = result.scalar_one()
     user_obj.is_active = False
-    await db_session.commit()
+    await db_session.flush()
 
     # api calls should now bounce
     r = await client.get("/api/v1/users/me", headers=headers)

@@ -24,7 +24,7 @@ class RefreshTokenRepository:
     async def create(self, token: RefreshToken) -> RefreshToken:
         """Persist a new RefreshToken row and return it with server-generated fields."""
         self.db.add(token)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(token)
         return token
 
@@ -42,12 +42,12 @@ class RefreshTokenRepository:
         the token was already rotated and someone is replaying the old value.
         """
         token.used_at = datetime.now(UTC)
-        await self.db.commit()
+        await self.db.flush()
 
     async def revoke(self, token: RefreshToken) -> None:
         """Mark a single refresh token as revoked (e.g. targeted logout)."""
         token.is_revoked = True
-        await self.db.commit()
+        await self.db.flush()
 
     async def revoke_all_for_user(self, user_id: int) -> None:
         """Revoke every active refresh token belonging to a user.
@@ -63,4 +63,4 @@ class RefreshTokenRepository:
             )
             .values(is_revoked=True)
         )
-        await self.db.commit()
+        await self.db.flush()

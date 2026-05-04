@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.cache import blacklist_token
 from app.core.config import settings
 from app.core.exceptions import (
-    InvalidFieldException,
+    AuthenticationFailedException,
     PermissionDeniedException,
     ResourceAlreadyExistsException,
 )
@@ -95,10 +95,10 @@ class UserService:
         user = await self.repo.get_by_email(email)
 
         if user is None or not verify_password(password, user.hashed_password):
-            raise PermissionDeniedException("Incorrect email or password")
+            raise AuthenticationFailedException("Incorrect email or password")
 
         if not user.is_active:
-            raise PermissionDeniedException("Account is inactive")
+            raise AuthenticationFailedException("Account is inactive")
 
         return await self._issue_token_pair(user, request)
 
@@ -176,7 +176,7 @@ class UserService:
 
     async def update_profile(self, user: User, data: UserUpdate) -> User:
         """Update an existing user's profile information."""
-        updates = data.model_dump(exclude_none=True)
+        updates = data.model_dump(exclude_unset=True)
 
         if "email" in updates:
             existing = await self.repo.get_by_email(updates["email"])
@@ -189,11 +189,7 @@ class UserService:
                 raise ResourceAlreadyExistsException(
                     "Username is already taken")
 
-        try:
-            return await self.repo.update(user, updates)
-        except ValueError as e:
-            raise InvalidFieldException(
-                str(e).replace("Cannot update field: ", "")) from e
+        return await self.repo.update(user, updates)
 
     async def list_users_for_chat(self, exclude_user_id: int | None = None) -> list[User]:
         """List all active users for the chat feature.

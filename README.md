@@ -382,7 +382,7 @@ username=user@example.com&password=securepassword
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/users/me` | Yes | Get current authenticated user profile |
-| `PUT` | `/users/me` | Yes | Update own profile (email and/or username) |
+| `PATCH` | `/users/me` | Yes | Update own profile (email and/or username) |
 
 ---
 
@@ -498,8 +498,8 @@ cp .env.example .env
 | `REFRESH_TOKEN_EXPIRE_DAYS` | No | `7` | Opaque refresh token lifetime in days |
 | `CORS_ORIGINS` | No | `[]` | JSON array of allowed origins: `["http://localhost:3000"]` |
 | `REDIS_URL` | No | `redis://localhost:6379/0` | Redis URL for the async cache client (DB 0) |
-| `CELERY_BROKER_URL` | No | `redis://localhost:6379/1` | Redis URL for Celery broker (DB 1) |
-| `CELERY_RESULT_BACKEND` | No | `redis://localhost:6379/2` | Redis URL for Celery result storage (DB 2) |
+| `CELERY_BROKER_URL` | No | `sqla+postgresql://user:pass@host:5432/db` | PostgreSQL URL for Celery broker |
+| `CELERY_RESULT_BACKEND` | No | `db+postgresql://user:pass@host:5432/db` | PostgreSQL URL for Celery result storage |
 | `SMTP_HOST` | No | `smtp.gmail.com` | SMTP server hostname |
 | `SMTP_PORT` | No | `587` | SMTP server port |
 | `SMTP_USER` | No | `""` | SMTP authentication username |
@@ -507,7 +507,7 @@ cp .env.example .env
 | `CACHE_TTL_SECONDS` | No | `60` | Default Redis cache TTL in seconds |
 | `LOG_LEVEL` | No | `INFO` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
-> Three separate Redis databases (0, 1, 2) are used to prevent key collisions between the cache, the Celery broker, and the Celery result backend.
+> Redis is used for caching, while PostgreSQL is used for the Celery broker and result backend.
 
 
 

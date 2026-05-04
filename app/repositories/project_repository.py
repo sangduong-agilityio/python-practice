@@ -38,7 +38,7 @@ class ProjectRepository:
     async def create(self, project: Project) -> Project:
         """Persist a new ``Project`` and return it with server-generated fields populated."""
         self.db.add(project)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(project)
         return project
 
@@ -62,11 +62,11 @@ class ProjectRepository:
             validate_updatable_field(field, UpdatableFields.PROJECT, "project")
             setattr(project, field, value)
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(project)
         return project
 
     async def delete(self, project: Project) -> None:
         """Permanently remove a ``Project`` from the database."""
         await self.db.delete(project)
-        await self.db.commit()
+        await self.db.flush()

@@ -2,10 +2,12 @@
 Project business logic.
 """
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cache_delete_pattern, cache_get, cache_set
+
 from app.core.exceptions import (
-    InvalidFieldException,
     PermissionDeniedException,
     ResourceNotFoundException,
 )
@@ -13,6 +15,9 @@ from app.models.project import Project
 from app.models.user import User
 from app.repositories.project_repository import ProjectRepository
 from app.schemas.project import ProjectCreate, ProjectUpdate
+
+log = structlog.get_logger(__name__)
+_CACHE_PREFIX = "projects:user"
 
 
 class ProjectService:
@@ -39,24 +44,35 @@ class ProjectService:
         """Create a new project associated with the given owner."""
         project = Project(title=data.title,
                           description=data.description, owner_id=owner.id)
-        return await self.repo.create(project)
+        project = await self.repo.create(project)
+        await cache_delete_pattern(f"{_CACHE_PREFIX}:{owner.id}:*")
+        return project
 
     async def list_for_user(self, owner: User, skip: int = 0, limit: int = 20) -> list[Project]:
         """Retrieve a paginated list of projects owned by a user."""
-        return await self.repo.get_by_owner(owner.id, skip=skip, limit=limit)
+        cache_key = f"{_CACHE_PREFIX}:{owner.id}:skip={skip}:limit={limit}"
+        cached = await cache_get(cache_key)
+        if cached is not None:
+            log.info("cache.hit", key=cache_key)
+            return cached
+        log.info("cache.miss", key=cache_key)
+        projects = await self.repo.get_by_owner(owner.id, skip=skip, limit=limit)
+        from app.schemas.project import ProjectResponse
+        serialised = [ProjectResponse.model_validate(p).model_dump(mode="json") for p in projects]
+        await cache_set(cache_key, serialised)
+        return projects
 
     async def update(self, project_id: int, data: ProjectUpdate, current_user: User) -> Project:
         """Update a project's details, provided the user is the owner."""
         project = await self.get_or_404(project_id)
         self.assert_owner(project, current_user)
-        try:
-            return await self.repo.update(project, data.model_dump(exclude_none=True))
-        except ValueError as e:
-            raise InvalidFieldException(
-                str(e).replace("Cannot update field: ", "")) from e
+        updated = await self.repo.update(project, data.model_dump(exclude_unset=True))
+        await cache_delete_pattern(f"{_CACHE_PREFIX}:{current_user.id}:*")
+        return updated
 
     async def delete(self, project_id: int, current_user: User) -> None:
         """Delete a project permanently."""
         project = await self.get_or_404(project_id)
         self.assert_owner(project, current_user)
         await self.repo.delete(project)
+        await cache_delete_pattern(f"{_CACHE_PREFIX}:{current_user.id}:*")
