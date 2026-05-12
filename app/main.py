@@ -12,6 +12,8 @@ import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -65,6 +67,27 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(LoggingMiddleware)
+    
+    # TrustedHostMiddleware protects against HTTP Host Header attacks.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
+    
+    # ProxyHeadersMiddleware ensures FastAPI knows the real protocol (HTTPS) and 
+    # client IP when running behind a load balancer (Render, Railway, Nginx).
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        """Inject production-level security headers into every response."""
+        response = await call_next(request)
+        # HSTS: Force HTTPS for 1 year (only applies if the initial request was HTTPS)
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # Prevent browsers from guessing the MIME type
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # Clickjacking protection: DENY means the app cannot be displayed in an iframe
+        response.headers["X-Frame-Options"] = "DENY"
+        # Enable browser XSS filtering
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
 
     @app.exception_handler(ResourceNotFoundException)
     async def not_found_handler(_: Request, exc: ResourceNotFoundException) -> JSONResponse:
@@ -123,7 +146,7 @@ def create_app() -> FastAPI:
         redis_status = "ok"
         try:
             client = get_redis_client()
-            await client.ping()
+            await client.exists("healthcheck_test")
         except Exception as e:
             log.error("health_redis_failed", error=str(e))
             redis_status = "failed"

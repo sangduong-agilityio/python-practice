@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # CORS -- stored as a JSON array in the env file
     CORS_ORIGINS: list[AnyHttpUrl] = []
 
+    # Security
+    ALLOWED_HOSTS: list[str] = ["*"]
+
     # Redis -- used for response caching
     REDIS_URL: str = "redis://localhost:6379/0"
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
