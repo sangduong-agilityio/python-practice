@@ -52,4 +52,15 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             duration_ms=round(duration_ms, 2)
         )
         response.headers["X-Request-ID"] = request_id
+        
+        # Inject production-level security headers
+        # HSTS: Force HTTPS for 1 year
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # Prevent browsers from guessing the MIME type
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # Clickjacking protection: DENY means the app cannot be displayed in an iframe
+        response.headers["X-Frame-Options"] = "DENY"
+        # Enable browser XSS filtering
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        
         return response

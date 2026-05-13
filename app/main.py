@@ -75,20 +75,6 @@ def create_app() -> FastAPI:
     # client IP when running behind a load balancer (Render, Railway, Nginx).
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
-    @app.middleware("http")
-    async def add_security_headers(request: Request, call_next):
-        """Inject production-level security headers into every response."""
-        response = await call_next(request)
-        # HSTS: Force HTTPS for 1 year (only applies if the initial request was HTTPS)
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        # Prevent browsers from guessing the MIME type
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        # Clickjacking protection: DENY means the app cannot be displayed in an iframe
-        response.headers["X-Frame-Options"] = "DENY"
-        # Enable browser XSS filtering
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        return response
-
     @app.exception_handler(ResourceNotFoundException)
     async def not_found_handler(_: Request, exc: ResourceNotFoundException) -> JSONResponse:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": exc.message})
