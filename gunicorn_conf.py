@@ -3,15 +3,15 @@ import os
 
 # --- Binding ---
 # Listen on all interfaces on port 8000
-bind = os.getenv("BIND", "0.0.0.0:8000")
+port = os.getenv("PORT", "8000")
+bind = f"0.0.0.0:{port}"
 
 # --- Worker Strategy (Tuning) ---
 # For I/O bound async apps like FastAPI, we use Uvicorn workers managed by Gunicorn.
 # The standard formula is (2 * cores) + 1, but we allow environment overrides.
-workers_per_core = float(os.getenv("WORKERS_PER_CORE", "1"))
 cores = multiprocessing.cpu_count()
-default_web_concurrency = int(workers_per_core * cores) + 1
-workers = int(os.getenv("WEB_CONCURRENCY", str(default_web_concurrency)))
+default_workers = min(2, (cores * 1) + 1)  
+workers = int(os.getenv("WEB_CONCURRENCY", str(default_workers)))
 
 # Crucial: Use the Uvicorn worker class for async compatibility
 worker_class = "uvicorn.workers.UvicornWorker"
