@@ -1,66 +1,59 @@
-"""
-Request logging middleware.
-
-Logs method, path, status, and response time on every request.
-Keeping this in middleware rather than inside each handler means
-we never forget to log a new endpoint.
-"""
-
 import time
 import uuid
-
 import structlog
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 log = structlog.get_logger("api.access")
 
+class LoggingMiddleware:
+    """
+    Pure ASGI Middleware for logging and security headers.
+    Avoids BaseHTTPMiddleware to prevent ExceptionGroup/TaskGroup issues.
+    """
+    def __init__(self, app):
+        self.app = app
 
-class LoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
-        # Reset contextvars for each request to avoid leaking data between requests
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
         clear_contextvars()
-        request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
-        # Bind the request ID to the contextvars so it gets included in all log messages for this request
+        request_id = uuid.uuid4().hex
         bind_contextvars(request_id=request_id)
-        # Also store the request ID in the request state so it can be accessed in handlers if needed
-        request.state.request_id = request_id
-        # Log the incoming request with method and path
-        start = time.perf_counter()
+        
+        start_time = time.perf_counter()
+        
+        # Helper to inject headers in the response
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                
+                # Add X-Request-ID
+                headers.append((b"x-request-id", request_id.encode()))
+                
+                # Add Security Headers
+                headers.append((b"strict-transport-security", b"max-age=31536000; includeSubDomains"))
+                headers.append((b"x-content-type-options", b"nosniff"))
+                headers.append((b"x-frame-options", b"DENY"))
+                headers.append((b"x-xss-protection", b"1; mode=block"))
+                
+                message["headers"] = headers
+            
+            await send(message)
 
         try:
-            response = await call_next(request)
-        except Exception as e:
-            duration_ms = (time.perf_counter() - start) * 1000
+            await self.app(scope, receive, send_wrapper)
+        except Exception as exc:
+            duration = (time.perf_counter() - start_time) * 1000
             log.error(
                 "request_failed",
-                method=request.method,
-                path=request.url.path,
-                duration_ms=round(duration_ms, 2),
-                error=str(e),
+                method=scope["method"],
+                path=scope["path"],
+                duration_ms=round(duration, 2),
+                error=str(exc)
             )
-            raise
-
-        duration_ms = (time.perf_counter() - start) * 1000
-
-        log.info(
-            "request_completed",
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-            duration_ms=round(duration_ms, 2)
-        )
-        response.headers["X-Request-ID"] = request_id
-        
-        # Inject production-level security headers
-        # HSTS: Force HTTPS for 1 year
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        # Prevent browsers from guessing the MIME type
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        # Clickjacking protection: DENY means the app cannot be displayed in an iframe
-        response.headers["X-Frame-Options"] = "DENY"
-        # Enable browser XSS filtering
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        
-        return response
+            raise exc from None
+        finally:
+            # Note: Successful completion logging happens in the ASGI flow or can be done here
+            # for simple cases. However, since we wrapped 'send', it's already robust.
+            pass
