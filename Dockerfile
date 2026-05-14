@@ -20,15 +20,19 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application source last so code changes don't invalidate the
-# dependency layer above.
+# Copy application source last
 COPY . .
 
+# Ensure the startup script is executable
+RUN chmod +x /app/start.sh
+
 # Run as a non-root user to follow the principle of least privilege.
-RUN adduser --disabled-password --no-create-home appuser
+RUN adduser --disabled-password --gecos "" appuser \
+    && chown -R appuser:appuser /app
+
 USER appuser
 
 EXPOSE 8000
 
-# Use Gunicorn as the production-grade process manager
-CMD ["gunicorn", "-c", "gunicorn_conf.py", "app.main:app"]
+# Use the startup script to handle migrations + server execution
+CMD ["/app/start.sh"]
