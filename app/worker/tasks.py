@@ -48,10 +48,17 @@ def _smtp_send(to: str, subject: str, body_html: str) -> None:
         msg["To"] = to
         msg.attach(MIMEText(body_html, "html"))
 
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
+        # Use SMTP_SSL for port 465, standard SMTP for others (like 587 with STARTTLS)
+        if settings.SMTP_PORT == 465:
+            server_class = smtplib.SMTP_SSL
+        else:
+            server_class = smtplib.SMTP
+
+        with server_class(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            if settings.SMTP_PORT == 587:
+                server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_USER, to, msg.as_string())
+            server.send_message(msg)
 
         log.info("Email sent to %s: %s", to, subject)
     except Exception:

@@ -14,15 +14,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
+    DB_ECHO: bool = False
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v: str) -> str:
-        """Automatically add asyncpg driver prefix if missing (useful for Cloud deployments)."""
-        if isinstance(v, str) and v.startswith("postgresql://"):
+        """Automatically replace sync driver with asyncpg for cloud deployments.
+
+        Railway and Heroku may supply either postgresql:// or postgres://,
+        both of which default to psycopg2 (sync). We normalise to
+        postgresql+asyncpg:// so SQLAlchemy async engine works correctly.
+        """
+        if not isinstance(v, str):
+            return v
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
             return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
-    DB_ECHO: bool = False
 
     # Auth
     SECRET_KEY: str
