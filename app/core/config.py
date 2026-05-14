@@ -7,13 +7,21 @@ variable is missing -- that is intentional: fail fast at boot rather
 than encounter a KeyError at 3am in production.
 """
 
-from pydantic import AnyHttpUrl
+from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        """Automatically add asyncpg driver prefix if missing (useful for Cloud deployments)."""
+        if isinstance(v, str) and v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
     DB_ECHO: bool = False
 
     # Auth
