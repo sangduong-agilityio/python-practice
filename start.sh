@@ -3,9 +3,12 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+# Crucial: Ensure the 'app' directory is in the python path
+export PYTHONPATH=$PYTHONPATH:.
+
 echo "--- Running Database Migrations ---"
-# Run alembic migrations to ensure the database schema is up to date
-alembic upgrade head
+# Run alembic migrations using python -m to ensure the current path is included
+python -m alembic upgrade head
 
 echo "--- Starting Gunicorn Server ---"
 # Start Gunicorn with the optimized production configuration
