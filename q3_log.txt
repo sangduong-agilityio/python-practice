@@ -1,0 +1,5 @@
+8f3c6d6 feat(uow): allow run executor to accept configurable uow factory
+04896b9 fix(deploy): configure CORS allowed origins for staging preflight
+d51015e docs(training): complete day 01 prompt comparison exercises
+b2e189a refactor(repo): decouple database session from repository layer
+10a4f82 chore: initial fastapi task management project skeleton

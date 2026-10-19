@@ -1,0 +1,60 @@
+# ============================================================
+# docker-compose.yml
+# ============================================================
+# Defines two services:
+#   1. db  — PostgreSQL database
+#   2. api — Our FastAPI application
+#
+# Run with: docker compose up --build
+# Stop with: docker compose down
+# Stop + delete data: docker compose down -v
+
+version: "3.9"
+
+services:
+
+  # ---- PostgreSQL Database ----
+  db:
+    image: postgres:16-alpine        # Alpine = smaller image
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskuser
+      POSTGRES_PASSWORD: taskpassword
+      POSTGRES_DB: taskdb
+    ports:
+      - "5432:5432"                  # Expose to host so you can connect with pgAdmin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist data between container restarts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskuser -d taskdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---- FastAPI Application ----
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Override .env settings for Docker networking:
+      # "db" is the hostname of the postgres service above
+      DATABASE_URL: postgresql+asyncpg://taskuser:taskpassword@db:5432/taskdb
+      SECRET_KEY: docker-dev-secret-change-in-production
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      DEBUG: "true"
+    depends_on:
+      db:
+        condition: service_healthy  # Wait for postgres to be ready before starting API
+    volumes:
+      # Mount source code so you can develop without rebuilding the image
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+
+volumes:
+  postgres_data:     # Named volume — persists even when containers are stopped

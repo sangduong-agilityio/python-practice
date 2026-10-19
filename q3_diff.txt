@@ -1,0 +1,18 @@
+diff --git a/app/core/dependencies.py b/app/core/dependencies.py
+index 19a3b82..8f3c6d6 100644
+--- a/app/core/dependencies.py
++++ b/app/core/dependencies.py
+@@ -15,4 +15,7 @@ from app.db.session import async_session_factory
++from uow import UnitOfWork
++
++def get_uow_factory():
++    return lambda: UnitOfWork(async_session_factory)
+diff --git a/app/services/task_service.py b/app/services/task_service.py
+index 28e4c11..59a1d3f 100644
+--- a/app/services/task_service.py
++++ b/app/services/task_service.py
+@@ -20,6 +20,10 @@ class TaskService:
+-    def __init__(self, db: AsyncSession):
+-        self.db = db
++    def __init__(self, uow_factory=None):
++        self.uow_factory = uow_factory
