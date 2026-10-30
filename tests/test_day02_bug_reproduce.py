@@ -1,13 +1,15 @@
 """
 tests/test_day02_bug_reproduce.py
 ---------------------------------
-Automated test to reproduce TICKET-201 (Seeded Bug for Day 02).
+Regression test for TICKET-201 (originally a seeded bug for Day 02).
 
 Bug Summary:
 Clients sending status query parameter in uppercase (e.g., status=TODO or status=IN_PROGRESS)
-fail validation (HTTP 422) instead of being accepted with case-insensitive normalization (HTTP 200).
+used to fail validation (HTTP 422) instead of being accepted with case-insensitive
+normalization (HTTP 200).
 
-Running this test against the current codebase will FAIL (Red), proving the bug exists.
+The bug is fixed: the list endpoint normalizes `status` with `.strip().lower()` before
+parsing the enum. This test guards against it coming back, and is expected to PASS (Green).
 """
 
 import pytest
@@ -21,7 +23,7 @@ async def test_reproduce_ticket_201_case_insensitive_status_filter(
     client: AsyncClient, auth_headers: dict
 ) -> None:
     """
-    Reproduction test for TICKET-201:
+    Regression test for TICKET-201:
     Assert that the endpoint accepts uppercase status parameters (e.g. ?status=TODO)
     and returns HTTP 200 with the matching tasks.
     """

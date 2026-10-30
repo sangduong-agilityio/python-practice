@@ -103,13 +103,13 @@ async def test_login_success(client: AsyncClient) -> None:
 
     response = await client.post(
         "/api/v1/auth/login",
-        json={"email": "login@example.com", "username": "loginuser", "password": "mypassword99"},
+        data={"username": "login@example.com", "password": "mypassword99"},
     )
     assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
-    assert len(data["access_token"]) > 20  # Sanity check — JWTs are long strings
+    body = response.json()
+    assert "access_token" in body
+    assert body["token_type"] == "bearer"
+    assert len(body["access_token"]) > 20  # Sanity check — JWTs are long strings
 
 
 @pytest.mark.asyncio
@@ -122,7 +122,7 @@ async def test_login_wrong_password_401(client: AsyncClient) -> None:
 
     response = await client.post(
         "/api/v1/auth/login",
-        json={"email": "wp@example.com", "username": "wpuser", "password": "WRONGPASSWORD"},
+        data={"username": "wp@example.com", "password": "WRONGPASSWORD"},
     )
     assert response.status_code == 401
 
@@ -132,7 +132,7 @@ async def test_login_nonexistent_user_401(client: AsyncClient) -> None:
     """Logging in with an email that doesn't exist returns 401."""
     response = await client.post(
         "/api/v1/auth/login",
-        json={"email": "ghost@example.com", "username": "ghost", "password": "doesntmatter"},
+        data={"username": "ghost@example.com", "password": "doesntmatter"},
     )
     assert response.status_code == 401
 
