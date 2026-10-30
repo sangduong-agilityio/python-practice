@@ -92,6 +92,25 @@ async def test_create_task_invalid_priority_422(client: AsyncClient, auth_header
     assert response.status_code == 422
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sent", "expected"),
+    [("HIGH", "high"), ("High", "high"), (" low ", "low")],
+)
+async def test_create_task_priority_case_insensitive(
+    client: AsyncClient, auth_headers: dict, sent: str, expected: str
+) -> None:
+    """Priority is accepted regardless of casing or surrounding whitespace (TICKET-202)."""
+    project = await create_project(client, auth_headers)
+    response = await client.post(
+        f"/api/v1/projects/{project['id']}/tasks",
+        json={"title": "Mixed case priority", "priority": sent},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["priority"] == expected
+
+
 # ---------------------------------------------------------------------------
 # List tasks
 # ---------------------------------------------------------------------------
@@ -160,6 +179,91 @@ async def test_update_task_success(client: AsyncClient, auth_headers: dict) -> N
     data = response.json()
     assert data["title"] == "Updated task"
     assert data["description"] == "Now with details"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sent", "expected"),
+    [("DONE", "done"), ("Done", "done"), ("IN_PROGRESS", "in_progress")],
+)
+async def test_update_task_status_case_insensitive(
+    client: AsyncClient, auth_headers: dict, sent: str, expected: str
+) -> None:
+    """PUT accepts status in any casing (TICKET-202)."""
+    project = await create_project(client, auth_headers)
+    task = await create_task(client, auth_headers, project["id"])
+
+    response = await client.put(
+        f"/api/v1/tasks/{task['id']}",
+        json={"status": sent},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("sent", "expected"),
+    [("HIGH", "high"), ("Low", "low")],
+)
+async def test_update_task_priority_case_insensitive(
+    client: AsyncClient, auth_headers: dict, sent: str, expected: str
+) -> None:
+    """PUT accepts priority in any casing (TICKET-202)."""
+    project = await create_project(client, auth_headers)
+    task = await create_task(client, auth_headers, project["id"])
+
+    response = await client.put(
+        f"/api/v1/tasks/{task['id']}",
+        json={"priority": sent},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["priority"] == expected
+
+
+@pytest.mark.asyncio
+async def test_update_task_status_and_priority_uppercase_persisted(
+    client: AsyncClient, auth_headers: dict
+) -> None:
+    """Uppercase status + priority in one PUT are normalized and stored lowercase."""
+    project = await create_project(client, auth_headers)
+    task = await create_task(client, auth_headers, project["id"])
+
+    response = await client.put(
+        f"/api/v1/tasks/{task['id']}",
+        json={"status": "DONE", "priority": "HIGH"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "done"
+    assert response.json()["priority"] == "high"
+
+    fetched = await client.get(f"/api/v1/tasks/{task['id']}", headers=auth_headers)
+    assert fetched.status_code == 200
+    assert fetched.json()["status"] == "done"
+    assert fetched.json()["priority"] == "high"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [{"status": "BLOCKED"}, {"priority": "CRITICAL"}],
+)
+async def test_update_task_invalid_enum_422(
+    client: AsyncClient, auth_headers: dict, payload: dict
+) -> None:
+    """Unknown status/priority values are still rejected with 422 on PUT."""
+    project = await create_project(client, auth_headers)
+    task = await create_task(client, auth_headers, project["id"])
+
+    response = await client.put(
+        f"/api/v1/tasks/{task['id']}",
+        json=payload,
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
