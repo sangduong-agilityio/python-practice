@@ -53,7 +53,7 @@ def main():
     if not os.path.isfile(file_path):
         return 0
 
-    # Run from the project dir so ruff picks up the [tool.ruff] settings in pyproject.toml.
+    # ruff finds pyproject.toml from the file path; cwd only anchors a relative path.
     cwd = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or None
     ruff = ruff_command()
     run(ruff + ["format", file_path], cwd)
