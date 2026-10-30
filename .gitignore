@@ -37,3 +37,10 @@ coverage.xml
 
 # Docker
 *.log
+
+# Claude Code local artifacts
+.claude/worktrees/
+.claude/settings.local.json
+
+# Playwright MCP artifacts
+.playwright-mcp/
