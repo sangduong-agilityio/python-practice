@@ -13,6 +13,9 @@
 - **Async Safety:** ALWAYS eager-load relationships (e.g. `selectinload(Task.tags)`) in repository queries to prevent `MissingGreenlet` exceptions.
 - **Data Validation:** Normalize enum inputs (status, priority) case-insensitively using `.strip().lower()` or `@field_validator(..., mode="before")`. Invalid values must raise HTTP 422.
 - **Security:** Do not remove the 72-byte bcrypt truncation patch in `app/core/security.py`.
+- **Language:** All commit messages, PR titles/descriptions, code comments, and docstrings must be in English.
+- **Commits:** Before committing, check `git diff --stat`; never commit files whose only change is line endings (CRLF).
+- **Auth login:** Takes OAuth2 form data (`username=<email>`), not JSON. Tests must send `data=`, not `json=`.
 
 ## "Never Do" List
 - NEVER access lazy-loaded async ORM relationships without `selectinload`.
