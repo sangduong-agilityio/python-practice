@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "task-api": {
+      "command": "python",
+      "args": ["-m", "mcp_server.task_api_server"],
+      "env": {
+        "TASK_API_URL": "${TASK_API_URL:-http://127.0.0.1:8000}",
+        "TASK_API_EMAIL": "${TASK_API_EMAIL}",
+        "TASK_API_PASSWORD": "${TASK_API_PASSWORD}"
+      }
+    }
+  }
+}
