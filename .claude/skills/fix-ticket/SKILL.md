@@ -38,9 +38,9 @@ A fixed chain of steps. Do them in order and do not skip the red test: a fix wit
 ```bash
 pytest tests/<file>.py -k <test_name> -v   # the new test passes
 pytest                                      # the whole suite is green
-ruff check .
+ruff check <the .py files you changed>      # older code still has lint findings; don't fix those here
 ```
-Never say the ticket is fixed without the full `pytest` run and its pass/fail counts.
+Never say the ticket is fixed without the full `pytest` run and its pass/fail counts. The `pre_commit_test_gate` hook also re-runs ruff on staged files and the full suite on every `git commit`, and blocks the commit if either fails.
 
 ## 6. Self-review
 Run the `review-checklist` skill against `main...HEAD` and fix every finding before committing.
