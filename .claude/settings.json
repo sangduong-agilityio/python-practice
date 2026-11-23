@@ -9,6 +9,12 @@
             "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-forbidden-command.py\"",
             "timeout": 10,
             "statusMessage": "block-forbidden-command"
+          },
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_commit_test_gate.py\"",
+            "timeout": 300,
+            "statusMessage": "pre-commit-test-gate (ruff + pytest)"
           }
         ]
       }
