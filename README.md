@@ -232,6 +232,36 @@ task-management-api/
 
 ---
 
+## 🤖 MCP Server (manage tasks from Claude)
+
+`mcp_server/task_api_server.py` exposes this API to Claude Code (or any MCP client):
+
+| Kind | Name | What it does |
+| :--- | :--- | :--- |
+| Tool | `list_projects` | Projects of the logged-in user |
+| Tool | `list_tasks` | Tasks of a project, optional `status` filter |
+| Tool | `create_task` | Create a task (`priority`: low / medium / high) |
+| Tool | `update_task_status` | Move a task to todo / in_progress / done |
+| Resource | `tasks://projects/{project_id}/tasks` | All tasks of a project as JSON |
+| Prompt | `standup` | Daily stand-up summary for a project |
+
+It calls the running API over HTTP, so all validation and ownership rules still apply.
+
+1. Install the dev extras (includes `mcp`): `pip install -e ".[dev]"`
+2. Start the API: `uvicorn app.main:app --reload`
+3. Set the account the server acts as (PowerShell, then open a new terminal):
+   ```powershell
+   setx TASK_API_EMAIL "you@example.com"
+   setx TASK_API_PASSWORD "your-password"
+   ```
+4. Start Claude Code in this folder. `.mcp.json` registers the server as `task-api`; approve it once, then check with `/mcp`.
+
+Try: *"List my projects"*, *"Create a high priority task 'Fix login timeout' in project 1"*, or the `standup` prompt from the `/` menu.
+
+Tests: `pytest tests/test_mcp_server.py` runs the tools, resource and prompt against the in-process API.
+
+---
+
 ## 🔒 Security Notes
 
 - Passwords are hashed with **bcrypt** (never stored in plain text).
