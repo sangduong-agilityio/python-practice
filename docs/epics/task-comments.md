@@ -48,7 +48,7 @@ remove them. Today the only place for that conversation is outside the app.
 
 ## Sub-PRs
 
-- [ ] `feat/task-comments/model`: `TaskComment` model, export in `app/models/__init__.py`,
+- [x] `feat/task-comments/model`: `TaskComment` model, export in `app/models/__init__.py`,
   migration (upgrade / downgrade / upgrade checked), repository (create, get, list, count)
   with tests
 - [ ] `feat/task-comments/create-list`: schemas, service with the read/add rule,
