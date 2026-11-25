@@ -17,6 +17,11 @@
 - **Commits:** Before committing, check `git diff --stat`; never commit files whose only change is line endings (CRLF).
 - **Auth login:** Takes OAuth2 form data (`username=<email>`), not JSON. Tests must send `data=`, not `json=`.
 
+## Workflow
+- Feature work follows the epic workflow in `docs/workflow.md`: one feature = one epic (`epic/<slug>`), planned in `docs/epics/<slug>.md`, built as small sub-PRs (`<type>/<slug>/<part>`) in their own worktrees (`ticket-worktree` skill), verified by code and by hand (`docs/test-reports/<slug>.md`), reviewed as a whole by the `epic-reviewer` agent.
+- After the user approves an epic plan, do not ask again: decide and write the reason in the PR description. Stop only when blocked (missing access or a secret, or a conflict with this file).
+- Never merge a pull request, never push to `main`, never force-push, never `--no-verify`.
+
 ## "Never Do" List
 - NEVER access lazy-loaded async ORM relationships without `selectinload`.
 - NEVER use synchronous DB calls or forget `await` on async queries.
