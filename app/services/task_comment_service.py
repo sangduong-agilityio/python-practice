@@ -1,13 +1,17 @@
 """
 app/services/task_comment_service.py
 --------------------------------------
-Business logic for task comments (R1 access: project owner or task assignee).
+Business logic for task comments (docs/epics/task-comments.md).
+
+Read and add: the owner of the task's project or the task's assignee.
+Edit: the comment's author only. Delete: the author or the project owner.
 """
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task
+from app.models.task_comment import TaskComment
 from app.models.user import User
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.task_comment_repository import TaskCommentRepository
@@ -16,6 +20,7 @@ from app.schemas.task_comment import (
     TaskCommentCreate,
     TaskCommentList,
     TaskCommentResponse,
+    TaskCommentUpdate,
 )
 
 
@@ -79,3 +84,39 @@ class TaskCommentService:
             limit=limit,
             offset=offset,
         )
+
+    async def _get_comment_or_404(self, comment_id: int) -> TaskComment:
+        """Fetch a visible comment or raise 404 (soft-deleted ones count as missing)."""
+        comment = await self.comment_repo.get_by_id(comment_id)
+        if not comment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Comment {comment_id} not found",
+            )
+        return comment
+
+    async def update(
+        self, comment_id: int, data: TaskCommentUpdate, current_user: User
+    ) -> TaskCommentResponse:
+        """Edit a comment's content (author only)."""
+        comment = await self._get_comment_or_404(comment_id)
+        if comment.author_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the author can edit this comment",
+            )
+        comment = await self.comment_repo.update_content(comment, data.content)
+        return TaskCommentResponse.model_validate(comment)
+
+    async def delete(self, comment_id: int, current_user: User) -> None:
+        """Soft-delete a comment (its author or the owner of the task's project)."""
+        comment = await self._get_comment_or_404(comment_id)
+        if comment.author_id != current_user.id:
+            task = await self._get_task_or_404(comment.task_id)
+            project = await self.project_repo.get_by_id(task.project_id)
+            if project is None or project.owner_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only the author or the project owner can delete this comment",
+                )
+        await self.comment_repo.soft_delete(comment)
