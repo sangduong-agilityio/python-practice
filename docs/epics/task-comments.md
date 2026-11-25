@@ -54,7 +54,7 @@ remove them. Today the only place for that conversation is outside the app.
 - [x] `feat/task-comments/create-list`: schemas, service with the read/add rule,
   `POST` and `GET` endpoints, router registration, tests (201, list order, pagination,
   hidden deleted rows, 422, 404, 403, 401)
-- [ ] `feat/task-comments/edit-delete`: `PATCH` (author only) and `DELETE` (author or
+- [x] `feat/task-comments/edit-delete`: `PATCH` (author only) and `DELETE` (author or
   project owner, soft delete), tests (200/204, 403 for others, 404 for deleted or missing,
   422 for blank content)
 - [ ] `test/task-comments/report`: by-hand check of every endpoint on `/docs`, recorded in

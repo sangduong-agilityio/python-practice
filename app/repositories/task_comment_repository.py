@@ -61,3 +61,15 @@ class TaskCommentRepository:
             .where(TaskComment.task_id == task_id, VISIBLE)
         )
         return result.scalar_one()
+
+    async def update_content(self, comment: TaskComment, content: str) -> TaskComment:
+        """Replace a comment's content; `updated_at` is set by the database."""
+        comment.content = content
+        await self.db.flush()
+        await self.db.refresh(comment)
+        return comment
+
+    async def soft_delete(self, comment: TaskComment) -> None:
+        """Hide a comment from every read without removing the row."""
+        comment.is_deleted = True
+        await self.db.flush()

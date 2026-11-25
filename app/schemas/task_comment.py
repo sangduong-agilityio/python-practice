@@ -23,6 +23,10 @@ class TaskCommentCreate(BaseModel):
         return value
 
 
+class TaskCommentUpdate(TaskCommentCreate):
+    """Schema for PATCH /comments/{id}: same content rules as creating one."""
+
+
 class TaskCommentResponse(BaseModel):
     """A single comment in API responses."""
 

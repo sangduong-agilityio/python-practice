@@ -1,7 +1,7 @@
 """
 app/api/v1/endpoints/comments.py
 ---------------------------------
-Task comment endpoints (nested under a task).
+Task comment endpoints: add and list under a task, edit and delete by comment id.
 """
 
 from fastapi import APIRouter, Query, status
@@ -11,6 +11,7 @@ from app.schemas.task_comment import (
     TaskCommentCreate,
     TaskCommentList,
     TaskCommentResponse,
+    TaskCommentUpdate,
 )
 from app.services.task_comment_service import TaskCommentService
 
@@ -54,3 +55,37 @@ async def list_comments(
     return await service.list_for_task(
         task_id, current_user, limit=limit, offset=offset
     )
+
+
+@router.patch(
+    "/comments/{comment_id}",
+    response_model=TaskCommentResponse,
+    summary="Edit your comment",
+)
+async def update_comment(
+    comment_id: int,
+    data: TaskCommentUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> TaskCommentResponse:
+    """Replace the content of a comment. Only its author can edit it."""
+    service = TaskCommentService(db)
+    return await service.update(comment_id, data, current_user)
+
+
+@router.delete(
+    "/comments/{comment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a comment",
+)
+async def delete_comment(
+    comment_id: int,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> None:
+    """
+    Remove a comment from the task (soft delete).
+    Its author or the owner of the task's project can delete it.
+    """
+    service = TaskCommentService(db)
+    await service.delete(comment_id, current_user)
