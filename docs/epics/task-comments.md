@@ -51,7 +51,7 @@ remove them. Today the only place for that conversation is outside the app.
 - [x] `feat/task-comments/model`: `TaskComment` model, export in `app/models/__init__.py`,
   migration (upgrade / downgrade / upgrade checked), repository (create, get, list, count)
   with tests
-- [ ] `feat/task-comments/create-list`: schemas, service with the read/add rule,
+- [x] `feat/task-comments/create-list`: schemas, service with the read/add rule,
   `POST` and `GET` endpoints, router registration, tests (201, list order, pagination,
   hidden deleted rows, 422, 404, 403, 401)
 - [ ] `feat/task-comments/edit-delete`: `PATCH` (author only) and `DELETE` (author or
