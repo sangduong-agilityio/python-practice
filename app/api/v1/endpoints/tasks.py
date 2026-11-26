@@ -4,13 +4,21 @@ app/api/v1/endpoints/tasks.py
 Task CRUD, status change, and assignment endpoints.
 """
 
+from datetime import date
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.task import TaskPriority, TaskStatus
-from app.repositories.user_repository import UserRepository
 from app.repositories.project_repository import ProjectRepository
-from app.schemas.task import TaskAssignUpdate, TaskCreate, TaskOut, TaskStatusUpdate, TaskUpdate
+from app.repositories.user_repository import UserRepository
+from app.schemas.task import (
+    TaskAssignUpdate,
+    TaskCreate,
+    TaskOut,
+    TaskStatusUpdate,
+    TaskUpdate,
+)
 from app.services.email_service import send_task_assigned_email
 from app.services.task_service import TaskService
 
@@ -51,6 +59,16 @@ async def list_tasks(
     limit: int = Query(default=20, ge=1, le=100),
     status_filter: str | None = Query(default=None, alias="status"),
     priority_filter: str | None = Query(default=None, alias="priority"),
+    overdue: bool = Query(
+        default=False,
+        description="true: only tasks past their due date that are not done.",
+    ),
+    due_after: date | None = Query(
+        default=None, description="Only tasks due on or after this day (UTC)."
+    ),
+    due_before: date | None = Query(
+        default=None, description="Only tasks due on or before this day (UTC)."
+    ),
 ) -> list[TaskOut]:
     """
     List all tasks in a project with optional filters.
@@ -58,7 +76,16 @@ async def list_tasks(
     Query params:
     - **status**: Filter by status (case-insensitive: todo | in_progress | done)
     - **priority**: Filter by priority (case-insensitive: low | medium | high)
+    - **overdue**: `true` = due date passed and status is not `done`; `false` = no filter
+    - **due_after** / **due_before**: `YYYY-MM-DD`, both days included, UTC.
+      Tasks without a due date never match these filters.
     """
+    if due_after and due_before and due_after > due_before:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"due_after ({due_after}) is later than due_before ({due_before})",
+        )
+
     parsed_status: TaskStatus | None = None
     if status_filter:
         normalized_status = status_filter.strip().lower()
@@ -89,6 +116,9 @@ async def list_tasks(
         limit=limit,
         status_filter=parsed_status,
         priority_filter=parsed_priority,
+        overdue=overdue,
+        due_after=due_after,
+        due_before=due_before,
     )
 
 

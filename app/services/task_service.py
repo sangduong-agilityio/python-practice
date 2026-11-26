@@ -4,14 +4,16 @@ app/services/task_service.py
 Business logic for task CRUD, status changes, assignments, and tagging.
 """
 
+from datetime import date
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.task import Task, TaskStatus, TaskPriority
+from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.user import User
 from app.repositories.project_repository import ProjectRepository
-from app.repositories.task_repository import TaskRepository
 from app.repositories.tag_repository import TagRepository
+from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.task import TaskCreate, TaskUpdate
 
@@ -86,6 +88,9 @@ class TaskService:
         limit: int = 20,
         status_filter: TaskStatus | None = None,
         priority_filter: TaskPriority | None = None,
+        overdue: bool = False,
+        due_after: date | None = None,
+        due_before: date | None = None,
     ) -> list[Task]:
         """List tasks in a project (project owner only)."""
         project = await self._get_project_or_404(project_id)
@@ -97,6 +102,9 @@ class TaskService:
             limit=limit,
             status=status_filter,
             priority=priority_filter,
+            overdue=overdue,
+            due_after=due_after,
+            due_before=due_before,
         )
 
     async def update(
