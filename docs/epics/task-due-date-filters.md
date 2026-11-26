@@ -44,7 +44,7 @@ list instead of scanning every task: `GET /projects/{id}/tasks` gains filters on
 
 ## Sub-PRs
 
-- [ ] `feat/task-due-date-filters/repository`: `overdue`, `due_after`, `due_before` in
+- [x] `feat/task-due-date-filters/repository`: `overdue`, `due_after`, `due_before` in
   `TaskRepository.list_by_project`, with repository tests (inclusive ends, undated tasks,
   done tasks never overdue, combined with status)
 - [ ] `feat/task-due-date-filters/endpoint`: query parameters on
