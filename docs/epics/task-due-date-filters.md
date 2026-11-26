@@ -47,7 +47,7 @@ list instead of scanning every task: `GET /projects/{id}/tasks` gains filters on
 - [x] `feat/task-due-date-filters/repository`: `overdue`, `due_after`, `due_before` in
   `TaskRepository.list_by_project`, with repository tests (inclusive ends, undated tasks,
   done tasks never overdue, combined with status)
-- [ ] `feat/task-due-date-filters/endpoint`: query parameters on
+- [x] `feat/task-due-date-filters/endpoint`: query parameters on
   `GET /projects/{id}/tasks`, validation (bad date, reversed range → 422), service pass-through,
   API tests (happy path per filter, combinations, 422, 403, 404, 401)
 - [ ] `test/task-due-date-filters/report`: by-hand check on the running API, recorded in
