@@ -88,7 +88,11 @@ class TaskRepository:
             )
         if due_after:
             query = query.where(Task.due_date >= start_of_day(due_after))
-        if due_before:
+        if due_before == date.max:
+            # Every date is on or before the last one Python can represent, and
+            # adding a day to it would overflow: only drop the undated tasks.
+            query = query.where(Task.due_date.is_not(None))
+        elif due_before:
             # Inclusive: everything before the start of the next day.
             query = query.where(
                 Task.due_date < start_of_day(due_before + timedelta(days=1))

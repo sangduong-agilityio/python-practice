@@ -134,3 +134,9 @@ async def test_missing_project_is_404(client: AsyncClient, auth_headers: dict) -
 async def test_no_token_is_401(client: AsyncClient, board) -> None:
     r = await client.get(f"{board['url']}?overdue=true")
     assert r.status_code == 401
+
+
+async def test_last_representable_day_is_accepted(client, board) -> None:
+    # due_before=9999-12-31 used to crash with OverflowError (500) when adding a day.
+    assert len(await titles(client, board, "due_before=9999-12-31")) == 4
+    assert await titles(client, board, "due_after=9999-12-31") == set()
