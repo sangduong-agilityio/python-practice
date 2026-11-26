@@ -50,5 +50,5 @@ list instead of scanning every task: `GET /projects/{id}/tasks` gains filters on
 - [x] `feat/task-due-date-filters/endpoint`: query parameters on
   `GET /projects/{id}/tasks`, validation (bad date, reversed range → 422), service pass-through,
   API tests (happy path per filter, combinations, 422, 403, 404, 401)
-- [ ] `test/task-due-date-filters/report`: by-hand check on the running API, recorded in
+- [x] `test/task-due-date-filters/report`: by-hand check on the running API, recorded in
   `docs/test-reports/task-due-date-filters.md`
