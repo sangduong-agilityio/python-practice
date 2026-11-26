@@ -4,12 +4,19 @@ app/repositories/task_repository.py
 Database access layer for the Task model.
 """
 
+from datetime import UTC, date, datetime, time, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.task import Task, TaskPriority, TaskStatus
 from app.models.tag import Tag
+from app.models.task import Task, TaskPriority, TaskStatus
+
+
+def start_of_day(day: date) -> datetime:
+    """Midnight UTC at the start of `day`."""
+    return datetime.combine(day, time.min, tzinfo=UTC)
 
 
 class TaskRepository:
@@ -26,9 +33,7 @@ class TaskRepository:
         one query per tag, it fetches all tags in a single IN() query.
         """
         result = await self.db.execute(
-            select(Task)
-            .where(Task.id == task_id)
-            .options(selectinload(Task.tags))
+            select(Task).where(Task.id == task_id).options(selectinload(Task.tags))
         )
         return result.scalar_one_or_none()
 
@@ -39,6 +44,10 @@ class TaskRepository:
         limit: int = 20,
         status: TaskStatus | None = None,
         priority: TaskPriority | None = None,
+        overdue: bool = False,
+        due_after: date | None = None,
+        due_before: date | None = None,
+        now: datetime | None = None,
     ) -> list[Task]:
         """
         Fetch tasks for a project, with optional filters and pagination.
@@ -49,6 +58,13 @@ class TaskRepository:
             limit      : Max rows.
             status     : Optional status filter (e.g. "todo").
             priority   : Optional priority filter (e.g. "high").
+            overdue    : Only tasks whose due date has passed and that are not done.
+            due_after  : Only tasks due on or after this day (UTC, inclusive).
+            due_before : Only tasks due on or before this day (UTC, inclusive).
+            now        : The current time for `overdue`; defaults to now in UTC
+                         (tests pass a fixed value).
+
+        Tasks without a due date never match a due-date filter.
         """
         query = (
             select(Task)
@@ -64,6 +80,19 @@ class TaskRepository:
             query = query.where(Task.status == status)
         if priority:
             query = query.where(Task.priority == priority)
+        if overdue:
+            query = query.where(
+                Task.due_date.is_not(None),
+                Task.due_date < (now or datetime.now(UTC)),
+                Task.status != TaskStatus.DONE,
+            )
+        if due_after:
+            query = query.where(Task.due_date >= start_of_day(due_after))
+        if due_before:
+            # Inclusive: everything before the start of the next day.
+            query = query.where(
+                Task.due_date < start_of_day(due_before + timedelta(days=1))
+            )
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
