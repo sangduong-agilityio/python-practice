@@ -36,7 +36,7 @@ through the whole list: `GET /projects/{id}/tasks` gains a `q` search parameter.
 
 ## Sub-PRs
 
-- [ ] `feat/task-search/repository`: `q` in `TaskRepository.list_by_project` (title or
+- [x] `feat/task-search/repository`: `q` in `TaskRepository.list_by_project` (title or
   description, case-insensitive, wildcards escaped), repository tests
 - [ ] `feat/task-search/endpoint`: `q` query parameter (trimmed, empty ignored, max 100 → 422),
   service pass-through, API tests (match in title, in description, both filters combined,
