@@ -41,5 +41,5 @@ through the whole list: `GET /projects/{id}/tasks` gains a `q` search parameter.
 - [x] `feat/task-search/endpoint`: `q` query parameter (trimmed, empty ignored, max 100 → 422),
   service pass-through, API tests (match in title, in description, both filters combined,
   wildcards, 422, 403, 401)
-- [ ] `test/task-search/report`: by-hand check on the running API, recorded in
+- [x] `test/task-search/report`: by-hand check on the running API, recorded in
   `docs/test-reports/task-search.md`
