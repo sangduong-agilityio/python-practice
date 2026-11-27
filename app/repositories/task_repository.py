@@ -6,7 +6,7 @@ Database access layer for the Task model.
 
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -48,6 +48,7 @@ class TaskRepository:
         due_after: date | None = None,
         due_before: date | None = None,
         now: datetime | None = None,
+        q: str | None = None,
     ) -> list[Task]:
         """
         Fetch tasks for a project, with optional filters and pagination.
@@ -63,6 +64,8 @@ class TaskRepository:
             due_before : Only tasks due on or before this day (UTC, inclusive).
             now        : The current time for `overdue`; defaults to now in UTC
                          (tests pass a fixed value).
+            q          : Case-insensitive text found in the title or the description;
+                         `%` and `_` match themselves.
 
         Tasks without a due date never match a due-date filter.
         """
@@ -96,6 +99,13 @@ class TaskRepository:
             # Inclusive: everything before the start of the next day.
             query = query.where(
                 Task.due_date < start_of_day(due_before + timedelta(days=1))
+            )
+        if q:
+            query = query.where(
+                or_(
+                    Task.title.icontains(q, autoescape=True),
+                    Task.description.icontains(q, autoescape=True),
+                )
             )
 
         result = await self.db.execute(query)
