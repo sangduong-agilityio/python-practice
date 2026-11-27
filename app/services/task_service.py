@@ -91,6 +91,7 @@ class TaskService:
         overdue: bool = False,
         due_after: date | None = None,
         due_before: date | None = None,
+        q: str | None = None,
     ) -> list[Task]:
         """List tasks in a project (project owner only)."""
         project = await self._get_project_or_404(project_id)
@@ -105,6 +106,7 @@ class TaskService:
             overdue=overdue,
             due_after=due_after,
             due_before=due_before,
+            q=q,
         )
 
     async def update(
