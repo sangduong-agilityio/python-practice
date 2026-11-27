@@ -69,6 +69,11 @@ async def list_tasks(
     due_before: date | None = Query(
         default=None, description="Only tasks due on or before this day (UTC)."
     ),
+    q: str | None = Query(
+        default=None,
+        max_length=100,
+        description="Text to find in the title or description (case-insensitive).",
+    ),
 ) -> list[TaskOut]:
     """
     List all tasks in a project with optional filters.
@@ -79,6 +84,8 @@ async def list_tasks(
     - **overdue**: `true` = due date passed and status is not `done`; `false` = no filter
     - **due_after** / **due_before**: `YYYY-MM-DD`, both days included, UTC.
       Tasks without a due date never match these filters.
+    - **q**: text found in the title or description, case-insensitive; `%` and `_`
+      match themselves. Surrounding spaces are ignored; an empty search shows everything.
     """
     if due_after and due_before and due_after > due_before:
         raise HTTPException(
@@ -119,6 +126,7 @@ async def list_tasks(
         overdue=overdue,
         due_after=due_after,
         due_before=due_before,
+        q=(q or "").strip() or None,
     )
 
 

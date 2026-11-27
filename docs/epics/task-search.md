@@ -38,7 +38,7 @@ through the whole list: `GET /projects/{id}/tasks` gains a `q` search parameter.
 
 - [x] `feat/task-search/repository`: `q` in `TaskRepository.list_by_project` (title or
   description, case-insensitive, wildcards escaped), repository tests
-- [ ] `feat/task-search/endpoint`: `q` query parameter (trimmed, empty ignored, max 100 → 422),
+- [x] `feat/task-search/endpoint`: `q` query parameter (trimmed, empty ignored, max 100 → 422),
   service pass-through, API tests (match in title, in description, both filters combined,
   wildcards, 422, 403, 401)
 - [ ] `test/task-search/report`: by-hand check on the running API, recorded in
